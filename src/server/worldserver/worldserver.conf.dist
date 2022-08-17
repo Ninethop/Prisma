@@ -110,6 +110,7 @@ LogsDir = ""
 LoginDatabaseInfo     = "127.0.0.1;3306;trinity;trinity;auth"
 WorldDatabaseInfo     = "127.0.0.1;3306;trinity;trinity;world"
 CharacterDatabaseInfo = "127.0.0.1;3306;trinity;trinity;characters"
+PrismaDatabaseInfo    = "127.0.0.1;3306;trinity;trinity;prisma"
 
 #
 #    LoginDatabase.WorkerThreads
@@ -125,6 +126,7 @@ CharacterDatabaseInfo = "127.0.0.1;3306;trinity;trinity;characters"
 LoginDatabase.WorkerThreads     = 1
 WorldDatabase.WorkerThreads     = 1
 CharacterDatabase.WorkerThreads = 1
+PrismaDatabase.WorkerThreads    = 1
 
 #
 #    LoginDatabase.SynchThreads
@@ -137,6 +139,7 @@ CharacterDatabase.WorkerThreads = 1
 
 LoginDatabase.SynchThreads     = 1
 WorldDatabase.SynchThreads     = 1
+PrismaDatabase.SynchThreads    = 1
 CharacterDatabase.SynchThreads = 2
 
 #
