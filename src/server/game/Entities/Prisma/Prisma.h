@@ -1,34 +1,50 @@
 
 #pragma once
 
+#include "Map.h"
 #include "Creature.h"
 #include "PrismaData.h"
+#include "ObjectMgr.h"
 
 class TC_GAME_API Prisma : public Creature
 {
 public:
     explicit Prisma(bool isWorldObject = false);
 
-    void GenerateIV();
-    bool IVIsGenerated() { return _iv_generated; };
-    IndividualValue const GetIV() { return _iv; };
-    uint8 const GetStatIV(PrismaStat stat) { return _iv.GetStat(stat); };
+    void InitializePrisma();
+    void InitializePrismaFromGuid(uint32 guid);
+    uint32 GetPrismaEntry() { return (GetEntry() - PRISMA_TEMPLATE_RESERVED_MIN); }
 
-    void GenerateCharacteristic();
-    std::string const GetCharacteristic() { return _characteristic; };
+    static Prisma* Invoke(Player* owner, uint32 id);
+    static uint32 GetTeamID(Player* player, uint8 num = 0);
 
-    void GenerateNature();
+    bool IndividualValueIsGenerated() { return _iv_generated; };
+    PrismaIndividualValue const GetIV() { return _iv; };
+    uint8 const GetStatIV(PrismaStats stat) { return _iv.GetStat(stat); };
+
+    std::string const GetCharacteristic() { return _characteristic.GetCharacteristicName(); };
+
     bool NatureIsGenerated() { return _nature_generated; };
-    PrismaNature const GetNature() { return _nature.GetNature(); };
+    PrismaNatures const GetNature() { return _nature.GetNature(); };
     uint8 const GetNatureID() { return _nature.nature; };
     std::string const GetNatureName() { return _nature.GetName(); };
 
-private:
-    IndividualValue _iv;
-    bool _iv_generated;
-    void GenerateCharacteristicFromStat(PrismaStat stat);
-    std::string _characteristic;
+    bool GenderIsGenerated() { return _gender_generated; };
+    PrismaGenders const GetGender() { return _gender.GetGender(); };
+    std::string const GetGenderName() { return _gender.GetGenderName(); };
 
-    Nature _nature;
+private:
+    PrismaIndividualValue _iv;
+    PrismaNature _nature;
+    PrismaGender _gender;
+    PrismaCharacteristic _characteristic;
+
+    void GenerateIndividualValue();
+    void GenerateCharacteristic();
+    void GenerateNature();
+    void GenerateGender();
+
+    bool _iv_generated;
     bool _nature_generated;
+    bool _gender_generated;
 };

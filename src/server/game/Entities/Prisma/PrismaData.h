@@ -9,13 +9,22 @@
 #define PRISMA_TEMPLATE_RESERVED_MIN        45000
 #define PRISMA_TEMPLATE_RESERVED_MAX        55000
 
+#define NUM_MAX_NATURE      25
+#define NUM_MAX_GENDER      3
+#define NUM_MAX_STAT        6
+
+#define IV_MIN_VALUE        0
+#define IV_MAX_VALUE        31
+
 struct TC_GAME_API PrismaTemplate
 {
     uint32 Entry;
     std::string Name;
     std::string Description;
+    float GenderFactor;
     uint32 DisplayID;
     float  Scale;
+    uint32 Faction;
     uint32 EvolveLevel;
     uint32 EvolveID;
     uint32 Type;
@@ -34,7 +43,7 @@ struct TC_GAME_API PrismaTemplate
     uint32 EVSpeed;
 };
 
-enum class PrismaStat
+enum class PrismaStats
 {
     STAMINA,
     ATTACK,
@@ -44,9 +53,7 @@ enum class PrismaStat
     SPEED
 };
 
-#define NUM_MAX_STAT        6
-
-enum class PrismaNature
+enum class PrismaNatures
 {
                 // INCREASE 10%     DECREASE 10%
     HARDY,
@@ -76,9 +83,14 @@ enum class PrismaNature
     QUIRKY
 };
 
-#define NUM_MAX_NATURE      25
+enum class PrismaGenders
+{
+    MALE,
+    FEMALE,
+    NO_GENDER,
+};
 
-struct TC_GAME_API IndividualValue
+struct TC_GAME_API PrismaIndividualValue
 {
     uint8 stamina;
     uint8 attack;
@@ -87,71 +99,51 @@ struct TC_GAME_API IndividualValue
     uint8 special_defense;
     uint8 speed;
 
-    std::vector<PrismaStat> GetMax()
+    std::vector<PrismaStats> GetMax()
     {
-        std::vector<PrismaStat> max;
+        std::vector<PrismaStats> max;
         uint8 maximum = std::max({ stamina, attack, defense, special_attack, special_defense, speed });
-        if (maximum == stamina)             max.push_back(PrismaStat::STAMINA);
-        if (maximum == attack)              max.push_back(PrismaStat::ATTACK);
-        if (maximum == defense)             max.push_back(PrismaStat::DEFENSE);
-        if (maximum == special_attack)      max.push_back(PrismaStat::SPECIAL_ATTACK);
-        if (maximum == special_defense)     max.push_back(PrismaStat::SPECIAL_DEFENSE);
-        if (maximum == speed)               max.push_back(PrismaStat::SPEED);
+        if (maximum == stamina)             max.push_back(PrismaStats::STAMINA);
+        if (maximum == attack)              max.push_back(PrismaStats::ATTACK);
+        if (maximum == defense)             max.push_back(PrismaStats::DEFENSE);
+        if (maximum == special_attack)      max.push_back(PrismaStats::SPECIAL_ATTACK);
+        if (maximum == special_defense)     max.push_back(PrismaStats::SPECIAL_DEFENSE);
+        if (maximum == speed)               max.push_back(PrismaStats::SPEED);
 
         return max;
     }
 
-    uint8 GetStat(PrismaStat _stat)
+    uint8 GetStat(PrismaStats _stat)
     {
         switch (_stat)
         {
-        case PrismaStat::STAMINA:             return stamina;             break;
-        case PrismaStat::ATTACK:              return attack;              break;
-        case PrismaStat::DEFENSE:             return defense;             break;
-        case PrismaStat::SPECIAL_ATTACK:      return special_attack;      break;
-        case PrismaStat::SPECIAL_DEFENSE:     return special_defense;     break;
-        case PrismaStat::SPEED:               return speed;               break;
+        case PrismaStats::STAMINA:             return stamina;             break;
+        case PrismaStats::ATTACK:              return attack;              break;
+        case PrismaStats::DEFENSE:             return defense;             break;
+        case PrismaStats::SPECIAL_ATTACK:      return special_attack;      break;
+        case PrismaStats::SPECIAL_DEFENSE:     return special_defense;     break;
+        case PrismaStats::SPEED:               return speed;               break;
         }
 
         return 0;
     }
 };
 
-struct TC_GAME_API Nature
+struct TC_GAME_API PrismaNature
 {
     uint8 nature;
 
-    PrismaNature GetNature()
+    void Set(PrismaNatures val)
     {
-        switch (nature)
-        {
-        default:
-        case 0: return PrismaNature::HARDY; break;
-        case 1: return PrismaNature::LONELY; break;
-        case 2: return PrismaNature::BRAVE; break;
-        case 3: return PrismaNature::ADAMANT; break;
-        case 4: return PrismaNature::NAUGHTY; break;
-        case 5: return PrismaNature::BOLD; break;
-        case 6: return PrismaNature::DOCILE; break;
-        case 7: return PrismaNature::RELAXED; break;
-        case 8: return PrismaNature::IMPISH; break;
-        case 9: return PrismaNature::LAX; break;
-        case 10: return PrismaNature::TIMID; break;
-        case 11: return PrismaNature::HASTY; break;
-        case 12: return PrismaNature::SERIOUS; break;
-        case 13: return PrismaNature::JOLLY; break;
-        case 14: return PrismaNature::NAIVE; break;
-        case 15: return PrismaNature::MODEST; break;
-        case 16: return PrismaNature::MILD; break;
-        case 17: return PrismaNature::QUIET; break;
-        case 18: return PrismaNature::BASHFUL; break;
-        case 19: return PrismaNature::RASH; break;
-        case 20: return PrismaNature::CALM; break;
-        case 21: return PrismaNature::GENTLE; break;
-        case 22: return PrismaNature::SASSY; break;
-        case 23: return PrismaNature::CAREFUL; break;
-        case 24: return PrismaNature::QUIRKY; break;
-        }
+        nature = uint8(val);
+    }
+
+    PrismaNatures GetNature()
+    {
+        if (nature >= 0 && nature < NUM_MAX_NATURE)
+            return (PrismaNatures)nature;
+
+        return PrismaNatures::HARDY;
     }
 
     std::string GetName()
@@ -159,31 +151,109 @@ struct TC_GAME_API Nature
         switch (nature)
         {
         default:
-        case 0: return "HARDY"; break;
-        case 1: return "LONELY"; break;
-        case 2: return "BRAVE"; break;
-        case 3: return "ADAMANT"; break;
-        case 4: return "NAUGHTY"; break;
-        case 5: return "BOLD"; break;
-        case 6: return "DOCILE"; break;
-        case 7: return "RELAXED"; break;
-        case 8: return "IMPISH"; break;
-        case 9: return "LAX"; break;
-        case 10: return "TIMID"; break;
-        case 11: return "HASTY"; break;
-        case 12: return "SERIOUS"; break;
-        case 13: return "JOLLY"; break;
-        case 14: return "NAIVE"; break;
-        case 15: return "MODEST"; break;
-        case 16: return "MILD"; break;
-        case 17: return "QUIET"; break;
-        case 18: return "BASHFUL"; break;
-        case 19: return "RASH"; break;
-        case 20: return "CALM"; break;
-        case 21: return "GENTLE"; break;
-        case 22: return "SASSY"; break;
-        case 23: return "CAREFUL"; break;
-        case 24: return "QUIRKY"; break;
+        case 0: return "Hardy"; break;
+        case 1: return "Lonely"; break;
+        case 2: return "Brave"; break;
+        case 3: return "Adamant"; break;
+        case 4: return "Naughty"; break;
+        case 5: return "Bold"; break;
+        case 6: return "Docile"; break;
+        case 7: return "Relaxed"; break;
+        case 8: return "Impish"; break;
+        case 9: return "Lax"; break;
+        case 10: return "Timid"; break;
+        case 11: return "Hasty"; break;
+        case 12: return "Serious"; break;
+        case 13: return "Jolly"; break;
+        case 14: return "Naive"; break;
+        case 15: return "Modest"; break;
+        case 16: return "Mild"; break;
+        case 17: return "Quiet"; break;
+        case 18: return "Bashful"; break;
+        case 19: return "Rash"; break;
+        case 20: return "Calm"; break;
+        case 21: return "Gentle"; break;
+        case 22: return "Sassy"; break;
+        case 23: return "Careful"; break;
+        case 24: return "Quirky"; break;
+        }
+    }
+};
+
+struct TC_GAME_API PrismaGender
+{
+    uint8 gender;
+
+    void Set(PrismaGenders gen)
+    {
+        gender = uint8(gen);
+    }
+
+    PrismaGenders GetGender()
+    {
+        if (gender >= 0 && gender < NUM_MAX_GENDER)
+            return (PrismaGenders)gender;
+
+        return PrismaGenders::NO_GENDER;
+    }
+
+    std::string GetGenderName()
+    {
+        switch (gender)
+        {
+        default:
+        case (uint8)PrismaGenders::NO_GENDER: return ""; break; // maybe retrun "Legendary" ?
+        case (uint8)PrismaGenders::MALE: return "Male"; break;
+        case (uint8)PrismaGenders::FEMALE: return "Female"; break;
+        }
+    }
+};
+
+struct TC_GAME_API PrismaCharacteristic
+{
+    int8 data = -1;
+
+    std::string GetCharacteristicName()
+    {
+        switch (data)
+        {
+            // stamina
+        default:
+        case 0: return "Loves to eat"; break;
+        case 1: return "Often dozes off"; break;
+        case 2: return "Often scatters things"; break;
+        case 3: return "Scatters things often"; break;
+        case 4: return "Like to relax"; break;
+            // attack
+        case 5: return "Proud of its power"; break;
+        case 6: return "Likes to thrash about"; break;
+        case 7: return "A little quick tempered"; break;
+        case 8: return "Likes to fight"; break;
+        case 9: return "Quick tempered"; break;
+            // defense
+        case 10: return "Sturdy body"; break;
+        case 11: return "Capable of taking hits"; break;
+        case 12: return "Highly persistent"; break;
+        case 13: return "Good endurance"; break;
+        case 14: return "Good perseverance"; break;
+            // special attack
+        case 15: return "Highly curious"; break;
+        case 16: return "Mischievous"; break;
+        case 17: return "Thoroughly cunning"; break;
+        case 18: return "Often lost in thought"; break;
+        case 19: return "Very finicky"; break;
+            // special defense
+        case 20: return "Strong willed"; break;
+        case 21: return "Somewhat vai"; break;
+        case 22: return "Strongly defiant"; break;
+        case 23: return "Hates to lose"; break;
+        case 24: return "Somewhat stubborn"; break;
+            // speed
+        case 25: return "Likes to run"; break;
+        case 26: return "Alert to sounds"; break;
+        case 27: return "Impetuous and silly"; break;
+        case 28: return "Somewhat of a clown"; break;
+        case 29: return "Quick to flee"; break;
         }
     }
 };

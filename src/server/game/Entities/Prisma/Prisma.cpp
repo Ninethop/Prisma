@@ -2,89 +2,140 @@
 #include "Prisma.h"
 
 Prisma::Prisma(bool isWorldObject)
-    : Creature(isWorldObject), _iv_generated(false), _nature_generated(false)
+    : Creature(isWorldObject), _iv_generated(false), _nature_generated(false), _gender_generated(false)
+{ }
+
+void Prisma::InitializePrisma()
 {
-    //GenerateIV();
-    //GenerateNature();
+    // this also generate characteristic
+    if (!IndividualValueIsGenerated())
+        GenerateIndividualValue();
+
+    if (!NatureIsGenerated())
+        GenerateNature();
+
+    if (!GenderIsGenerated())
+        GenerateGender();
 }
 
-void Prisma::GenerateIV()
+void Prisma::InitializePrismaFromGuid(uint32 guid)
 {
-    if (_iv_generated)
-        return;
 
-    _iv.stamina = irand(0, 31);
-    _iv.attack = irand(0, 31);
-    _iv.defense = irand(0, 31);
-    _iv.special_attack = irand(0, 31);
-    _iv.special_defense = irand(0, 31);
-    _iv.speed = irand(0, 31);
+}
 
-    _iv_generated = true;
+// this add to grid and to DB `creature`
+Prisma* Prisma::Invoke(Player* owner, uint32 id)
+{
+    Map* map = owner->GetMap();
+    Prisma* prisma = new Prisma();
+    if (!prisma->Create(map->GenerateLowGuid<HighGuid::Unit>(), map, owner->GetPhaseMaskForSpawn(), PRISMA_TEMPLATE_RESERVED_MIN + id, *owner))
+    {
+        delete prisma;
+        return nullptr;
+    }
+
+    prisma->SaveToDB(map->GetId(), (1 << map->GetSpawnMode()), owner->GetPhaseMaskForSpawn());
+    ObjectGuid::LowType db_guid = prisma->GetSpawnId();
+    prisma->CleanupsBeforeDelete();
+    delete prisma;
+
+    prisma = new Prisma();
+    if (!prisma->LoadFromDB(db_guid, map, true, true))
+    {
+        delete prisma;
+        return nullptr;
+    }
+
+    sObjectMgr->AddCreatureToGrid(db_guid, sObjectMgr->GetCreatureData(db_guid));
+    return prisma;
+}
+
+uint32 Prisma::GetTeamID(Player* player, uint8 num)
+{
+    if (num > 5)
+        return uint32(0);
+
+    // first select all the player team
+    PrismaDatabasePreparedStatement* stmt = PrismaDatabase.GetPreparedStatement(PRISMA_SEL_PLAYER_PRISMA);
+    stmt->setUInt32(0, player->GetGUID());
+    PreparedQueryResult result = PrismaDatabase.Query(stmt);
+
+    if (result)
+    {
+        // if guid == 0, then player doesn't have the desired prisma
+        uint32 prisma_guid = (*result)[num].GetUInt32();
+        if (prisma_guid == 0)
+            return 0;
+
+        // second select the id from the guid in `prisma_template` table
+        PrismaDatabasePreparedStatement* stmt_id = PrismaDatabase.GetPreparedStatement(PRISMA_SEL_PRISMA_ID_FROM_GUID);
+        stmt_id->setUInt32(0, prisma_guid);
+        PreparedQueryResult result_id = PrismaDatabase.Query(stmt_id);
+
+        if (result_id)
+        {
+            // if id == 0, then error
+            uint32 prisma_id = (*result_id)[0].GetUInt32();
+            if (prisma_id == 0)
+            {
+                TC_LOG_INFO("prisma", "[ERROR]: Prisma with GUID:%u doesn't have ID in `prisma` table.", prisma_guid);
+                return uint32(0);
+            }
+
+            return prisma_id;
+        }
+    }
+
+    return uint32(0);
+}
+
+void Prisma::GenerateIndividualValue()
+{
+    _iv.stamina         = irand(IV_MIN_VALUE, IV_MAX_VALUE);
+    _iv.attack          = irand(IV_MIN_VALUE, IV_MAX_VALUE);
+    _iv.defense         = irand(IV_MIN_VALUE, IV_MAX_VALUE);
+    _iv.special_attack  = irand(IV_MIN_VALUE, IV_MAX_VALUE);
+    _iv.special_defense = irand(IV_MIN_VALUE, IV_MAX_VALUE);
+    _iv.speed           = irand(IV_MIN_VALUE, IV_MAX_VALUE);
 
     GenerateCharacteristic();
+    _iv_generated = true;
 }
 
 void Prisma::GenerateCharacteristic()
 {
-    std::vector<PrismaStat> max = _iv.GetMax();
+    std::vector<PrismaStats> max = _iv.GetMax();
     if (max.size() == 0) // error
-        return; 
+        return;
 
-    // only one stat at max
-    if (max.size() == 1)
-    {
-        GenerateCharacteristicFromStat(max[0]);
-    }
-    else // choose one randomly
-    {
-        int rand = irand(0, max.size() - 1);
-        GenerateCharacteristicFromStat(max[rand]);
-    }
-}
+    int index = 0;
+    if (max.size() > 1)
+        index = irand(0, max.size() - 1);
 
-void Prisma::GenerateCharacteristicFromStat(PrismaStat stat)
-{
-    const std::string _stamina_c[5] = { "Loves to eat", "Often dozes off", "Often scatters things", "Scatters things often", "Like to relax" };
-    const std::string _attack_c[5] = { "Proud of its power", "Likes to thrash about", "A little quick tempered", "Likes to fight", "Quick tempered" };
-    const std::string _defense_c[5] = { "Sturdy body", "Capable of taking hits", "Highly persistent", "Good endurance", "Good perseverance" };
-    const std::string _special_attack_c[5] = { "Highly curious", "Mischievous", "Thoroughly cunning", "Often lost in thought", "Very finicky" };
-    const std::string _special_defense_c[5] = { "Strong willed", "Somewhat vain", "Strongly defiant", "Hates to lose", "Somewhat stubborn" };
-    const std::string _speed_c[5] = { "Likes to run", "Alert to sounds", "Impetuous and silly", "Somewhat of a clown", "Quick to flee" };
-
-    TC_LOG_INFO("prisma", "hre : %u", (uint8)stat);
-
-    switch (stat)
-    {
-    case PrismaStat::STAMINA:
-        _characteristic = _stamina_c[_iv.GetStat(stat) % 5];
-        break;
-    case PrismaStat::ATTACK:
-        _characteristic = _attack_c[_iv.GetStat(stat) % 5];
-        break;
-    case PrismaStat::DEFENSE:
-        _characteristic = _defense_c[_iv.GetStat(stat) % 5];
-        break;
-    case PrismaStat::SPECIAL_ATTACK:
-        _characteristic = _special_attack_c[_iv.GetStat(stat) % 5];
-        break;
-    case PrismaStat::SPECIAL_DEFENSE:
-        _characteristic = _special_defense_c[_iv.GetStat(stat) % 5];
-        break;
-    case PrismaStat::SPEED:
-        _characteristic = _speed_c[_iv.GetStat(stat) % 5];
-        break;
-    }
-
-    TC_LOG_INFO("prisma", "hhhh");
-    TC_LOG_INFO("prisma", "%s", _characteristic);
+    PrismaStats _stat = max[index];
+    _characteristic.data = ((uint8)(_stat) * (NUM_MAX_STAT - 1)) + (_iv.GetStat(_stat) % 5);
 }
 
 void Prisma::GenerateNature()
 {
-    if (_nature_generated)
-        return;
-
-    _nature.nature = irand(0, NUM_MAX_NATURE - 1);
+    _nature.Set(PrismaNatures(irand(0, NUM_MAX_NATURE - 1)));
     _nature_generated = true;
+}
+
+void Prisma::GenerateGender()
+{
+    auto _template = sObjectMgr->GetPrismaTemplate(GetPrismaEntry());
+
+    if (!_template || _template->GenderFactor < 0)
+    {
+        _gender.Set(PrismaGenders::NO_GENDER);
+        _gender_generated = true;
+        return;
+    }
+
+    // if frand >= GenderFactor, then female otherwise male
+    if (frand(0.f, 1.f) >= _template->GenderFactor) _gender.Set(PrismaGenders::FEMALE);
+    else _gender.Set(PrismaGenders::MALE);
+
+    _gender_generated = true;
 }
