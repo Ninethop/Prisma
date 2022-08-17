@@ -621,47 +621,51 @@ void ObjectMgr::LoadPrismaTemplates()
     uint32 oldMSTime = getMSTime();
 
     QueryResult result = PrismaDatabase.Query(
-        //  0
+        // 0
         "SELECT ID,"
-        //  1
+        // 1
         "Name,"
-        //  2
+        // 2
         "Description,"
-        //  3
+        // 3
+        "Gender,"
+        // 4
         "DisplayID,"
-        //  4
+        // 5
         "Scale,"
-        //  5
+        // 6
+        "Faction,"
+        // 7
         "EvolveLevel,"
-        //  6
+        // 8
         "EvolveID,"
-        //  7
+        // 9
         "Type,"
-        //  8
+        // 10
         "BaseExperience,"
-        //  9
-        "Stamina,"
-        //  10
-        "Attack,"
         // 11
-        "Defense,"
+        "Stamina,"
         // 12
-        "SpecialAttack,"
+        "Attack,"
         // 13
-        "SpecialDefense,"
+        "Defense,"
         // 14
-        "Speed,"
+        "SpecialAttack,"
         // 15
-        "EVStamina,"
+        "SpecialDefense,"
         // 16
-        "EVAttack,"
+        "Speed,"
         // 17
-        "EVDefense,"
+        "EVStamina,"
         // 18
-        "EVSpecialAttack,"
+        "EVAttack,"
         // 19
-        "EVSpecialDefense,"
+        "EVDefense,"
         // 20
+        "EVSpecialAttack,"
+        // 21
+        "EVSpecialDefense,"
+        // 22
         "EVSpeed"
         " FROM prisma_template");
 
@@ -693,24 +697,26 @@ void ObjectMgr::LoadPrismaTemplate(Field* fields)
     prismaTemplate.Entry            = entry;
     prismaTemplate.Name             = fields[1].GetString();
     prismaTemplate.Description      = fields[2].GetString();
-    prismaTemplate.DisplayID        = fields[3].GetInt32();
-    prismaTemplate.Scale            = fields[4].GetFloat();
-    prismaTemplate.EvolveLevel      = fields[5].GetInt32();
-    prismaTemplate.EvolveID         = fields[6].GetInt32();
-    prismaTemplate.Type             = fields[7].GetUInt32();
-    prismaTemplate.BaseExperience   = fields[8].GetUInt32();
-    prismaTemplate.Stamina          = fields[9].GetUInt32();
-    prismaTemplate.Attack           = fields[10].GetUInt32();
-    prismaTemplate.Defense          = fields[11].GetUInt32();
-    prismaTemplate.SpecialAttack    = fields[12].GetUInt32();
-    prismaTemplate.SpecialDefense   = fields[13].GetUInt32();
-    prismaTemplate.Speed            = fields[14].GetUInt32();
-    prismaTemplate.EVStamina        = fields[15].GetUInt32();
-    prismaTemplate.EVAttack         = fields[16].GetUInt32();
-    prismaTemplate.EVDefense        = fields[17].GetUInt32();
-    prismaTemplate.EVSpecialAttack  = fields[18].GetUInt32();
-    prismaTemplate.EVSpecialDefense = fields[19].GetUInt32();
-    prismaTemplate.EVSpeed          = fields[20].GetUInt32();
+    prismaTemplate.GenderFactor     = fields[3].GetFloat();
+    prismaTemplate.DisplayID        = fields[4].GetInt32();
+    prismaTemplate.Scale            = fields[5].GetFloat();
+    prismaTemplate.Faction          = fields[6].GetUInt32();
+    prismaTemplate.EvolveLevel      = fields[7].GetInt32();
+    prismaTemplate.EvolveID         = fields[8].GetInt32();
+    prismaTemplate.Type             = fields[9].GetUInt32();
+    prismaTemplate.BaseExperience   = fields[10].GetUInt32();
+    prismaTemplate.Stamina          = fields[11].GetUInt32();
+    prismaTemplate.Attack           = fields[12].GetUInt32();
+    prismaTemplate.Defense          = fields[13].GetUInt32();
+    prismaTemplate.SpecialAttack    = fields[14].GetUInt32();
+    prismaTemplate.SpecialDefense   = fields[15].GetUInt32();
+    prismaTemplate.Speed            = fields[16].GetUInt32();
+    prismaTemplate.EVStamina        = fields[17].GetUInt32();
+    prismaTemplate.EVAttack         = fields[18].GetUInt32();
+    prismaTemplate.EVDefense        = fields[19].GetUInt32();
+    prismaTemplate.EVSpecialAttack  = fields[20].GetUInt32();
+    prismaTemplate.EVSpecialDefense = fields[21].GetUInt32();
+    prismaTemplate.EVSpeed          = fields[22].GetUInt32();
 }
 
 void ObjectMgr::PopulateCreatureFromPrisma()
@@ -724,18 +730,19 @@ void ObjectMgr::PopulateCreatureFromPrisma()
     }        
 
     int count = 0;
+    WorldDatabasePreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_REP_PRISMA_TEMPLATE);
     for (auto prisma : _prismaTemplateStore)
     {
-        WorldDatabasePreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_REP_PRISMA_TEMPLATE);
-        stmt->setUInt32(0, 45000 + prisma.first); // entry
+        stmt->setUInt32(0, PRISMA_TEMPLATE_RESERVED_MIN + prisma.second.Entry);
         stmt->setUInt32(1, prisma.second.DisplayID);
         stmt->setString(2, prisma.second.Name);
-        stmt->setUInt32(3, prisma.second.Scale);
+        stmt->setFloat(3, prisma.second.Faction);
+        stmt->setUInt32(4, prisma.second.Scale);
         WorldDatabase.Execute(stmt);
         count++;
     }
 
-    TC_LOG_INFO("server.loading", ">> Populated " SZFMTD " `creature_template` from `prisma_template` in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
+    TC_LOG_INFO("server.loading", ">> Populated %u `creature_template` from `prisma_template` in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
 }
 
 void ObjectMgr::LoadCreatureTemplateResistances()
