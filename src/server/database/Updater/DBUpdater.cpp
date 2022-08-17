@@ -123,6 +123,38 @@ BaseLocation DBUpdater<WorldDatabaseConnection>::GetBaseLocationType()
     return LOCATION_DOWNLOAD;
 }
 
+// Prisma Database
+template<>
+std::string DBUpdater<PrismaDatabaseConnection>::GetConfigEntry()
+{
+    return "Updates.Prisma";
+}
+
+template<>
+std::string DBUpdater<PrismaDatabaseConnection>::GetTableName()
+{
+    return "Prisma";
+}
+
+template<>
+std::string DBUpdater<PrismaDatabaseConnection>::GetBaseFile()
+{
+    return BuiltInConfig::GetSourceDirectory() +
+        "/sql/base/prisma_database.sql";
+}
+
+template<>
+bool DBUpdater<PrismaDatabaseConnection>::IsEnabled(uint32 const updateMask)
+{
+    return (updateMask & DatabaseLoader::DATABASE_PRISMA) ? true : false;
+}
+
+template <>
+BaseLocation DBUpdater<PrismaDatabaseConnection>::GetBaseLocationType()
+{
+    return LOCATION_REPOSITORY;
+}
+
 // Character Database
 template<>
 std::string DBUpdater<CharacterDatabaseConnection>::GetConfigEntry()
@@ -409,4 +441,5 @@ void DBUpdater<T>::ApplyFile(DatabaseWorkerPool<T>& pool, std::string const& hos
 
 template class TC_DATABASE_API DBUpdater<LoginDatabaseConnection>;
 template class TC_DATABASE_API DBUpdater<WorldDatabaseConnection>;
+template class TC_DATABASE_API DBUpdater<PrismaDatabaseConnection>;
 template class TC_DATABASE_API DBUpdater<CharacterDatabaseConnection>;
