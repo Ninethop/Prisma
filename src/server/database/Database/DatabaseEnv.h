@@ -24,6 +24,7 @@
 #include "Implementation/LoginDatabase.h"
 #include "Implementation/CharacterDatabase.h"
 #include "Implementation/WorldDatabase.h"
+#include "Implementation/PrismaDatabase.h"
 
 #include "Field.h"
 #include "PreparedStatement.h"
@@ -31,6 +32,8 @@
 #include "QueryResult.h"
 #include "Transaction.h"
 
+/// Accessor to the prisma database
+TC_DATABASE_API extern DatabaseWorkerPool<PrismaDatabaseConnection> PrismaDatabase;
 /// Accessor to the world database
 TC_DATABASE_API extern DatabaseWorkerPool<WorldDatabaseConnection> WorldDatabase;
 /// Accessor to the character database

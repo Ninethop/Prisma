@@ -17,6 +17,7 @@
 
 #include "DatabaseEnv.h"
 
+DatabaseWorkerPool<PrismaDatabaseConnection> PrismaDatabase;
 DatabaseWorkerPool<WorldDatabaseConnection> WorldDatabase;
 DatabaseWorkerPool<CharacterDatabaseConnection> CharacterDatabase;
 DatabaseWorkerPool<LoginDatabaseConnection> LoginDatabase;
