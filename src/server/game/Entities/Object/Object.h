@@ -34,6 +34,7 @@
 #include <list>
 #include <set>
 #include <unordered_map>
+#include <PrismaData.h>
 
 class Corpse;
 class Creature;
@@ -178,7 +179,7 @@ class TC_GAME_API Object
         Creature* ToCreature() { if (IsCreature()) return reinterpret_cast<Creature*>(this); else return nullptr; }
         Creature const* ToCreature() const { if (IsCreature()) return reinterpret_cast<Creature const*>(this); else return nullptr; }
 
-        inline bool IsPrisma() const { return GetTypeId() == TYPEID_UNIT; }
+        inline bool IsPrisma() const { return (GetTypeId() == TYPEID_UNIT && (GetEntry() >= PRISMA_TEMPLATE_RESERVED_MIN && GetEntry() <= PRISMA_TEMPLATE_RESERVED_MAX)); }
         static Prisma* ToPrisma(Object* o) { return o ? o->ToPrisma() : nullptr; }
         static Prisma const* ToPrisma(Object const* o) { return o ? o->ToPrisma() : nullptr; }
         Prisma* ToPrisma() { if (IsPrisma()) return reinterpret_cast<Prisma*>(this); else return nullptr; }
