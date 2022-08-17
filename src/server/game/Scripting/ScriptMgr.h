@@ -33,6 +33,7 @@ class Battleground;
 class BattlegroundMap;
 class Channel;
 class Creature;
+class Prisma;
 class CreatureAI;
 class DynamicObject;
 class GameObject;
@@ -635,11 +636,20 @@ class TC_GAME_API PlayerScript : public ScriptObject
 
     public:
 
+        // Called when a player leave a combat
+        virtual void OnLeaveCombat(Player* /*player*/) { };
+
+        // Called when a player enter a combat
+        virtual void OnEnterCombat(Player* /*player*/, Unit* /*other*/) { };
+
         // Called when a player kills another player
         virtual void OnPVPKill(Player* /*killer*/, Player* /*killed*/) { }
 
         // Called when a player kills a creature
         virtual void OnCreatureKill(Player* /*killer*/, Creature* /*killed*/) { }
+
+        // Called when a player kill a prisma
+        virtual void OnPrismaKill(Player* /*killer*/, Prisma* /*killed*/) { }
 
         // Called when a player is killed by a creature
         virtual void OnPlayerKilledByCreature(Creature* /*killer*/, Player* /*killed*/) { }
@@ -1021,8 +1031,11 @@ class TC_GAME_API ScriptMgr
 
     public: /* PlayerScript */
 
+        void OnLeaveCombat(Player* player);
+        void OnEnterCombat(Player* player, Unit* other);
         void OnPVPKill(Player* killer, Player* killed);
         void OnCreatureKill(Player* killer, Creature* killed);
+        void OnPrismaKill(Player* killer, Prisma* killed);
         void OnPlayerKilledByCreature(Creature* killer, Player* killed);
         void OnPlayerLevelChanged(Player* player, uint8 oldLevel);
         void OnPlayerFreeTalentPointsChanged(Player* player, uint32 newPoints);

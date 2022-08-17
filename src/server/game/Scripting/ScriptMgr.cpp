@@ -1940,6 +1940,16 @@ bool ScriptMgr::OnCriteriaCheck(uint32 scriptId, Player* source, Unit* target)
 }
 
 // Player
+void ScriptMgr::OnLeaveCombat(Player* player)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnLeaveCombat(player);
+}
+
+void ScriptMgr::OnEnterCombat(Player* player, Unit* other)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnEnterCombat(player, other);
+}
+
 void ScriptMgr::OnPVPKill(Player* killer, Player* killed)
 {
 #ifdef ELUNA
@@ -1954,6 +1964,11 @@ void ScriptMgr::OnCreatureKill(Player* killer, Creature* killed)
     sEluna->OnCreatureKill(killer, killed);
 #endif
     FOREACH_SCRIPT(PlayerScript)->OnCreatureKill(killer, killed);
+}
+
+void ScriptMgr::OnPrismaKill(Player* killer, Prisma* killed)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnPrismaKill(killer, killed);
 }
 
 void ScriptMgr::OnPlayerKilledByCreature(Creature* killer, Player* killed)
