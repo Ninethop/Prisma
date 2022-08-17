@@ -31,20 +31,20 @@ public:
         // initialize wild combat only if target is a simple prisma
         if (target->IsPrisma())
         {
+            TC_LOG_INFO("prisma", "%s, against %s !", player->GetName(), target->GetName());
             Prisma* prisma = target->ToPrisma();
-            prisma->GenerateIV();
-            prisma->GenerateNature();
+            prisma->InitializePrisma();
 
             InitializeWildCombat(player, prisma);
 
             TC_LOG_INFO("prisma", "%s Individual Values = stamina:%u - attack:%u - defense:%u - special_attack:%u - special_defense:%u - speed:%u", prisma->GetName(),
-                prisma->GetStatIV(PrismaStat::STAMINA), prisma->GetStatIV(PrismaStat::ATTACK), prisma->GetStatIV(PrismaStat::DEFENSE),
-                prisma->GetStatIV(PrismaStat::SPECIAL_ATTACK), prisma->GetStatIV(PrismaStat::SPECIAL_DEFENSE), prisma->GetStatIV(PrismaStat::SPEED));
+                prisma->GetStatIV(PrismaStats::STAMINA), prisma->GetStatIV(PrismaStats::ATTACK), prisma->GetStatIV(PrismaStats::DEFENSE),
+                prisma->GetStatIV(PrismaStats::SPECIAL_ATTACK), prisma->GetStatIV(PrismaStats::SPECIAL_DEFENSE), prisma->GetStatIV(PrismaStats::SPEED));
             TC_LOG_INFO("prisma", "%s Nature = %s", prisma->GetName(), prisma->GetNatureName());
             TC_LOG_INFO("prisma", "%s Characteristic = %s", prisma->GetName(), prisma->GetCharacteristic());
+            TC_LOG_INFO("prisma", "%s Gender = %s", prisma->GetName(), prisma->GetGenderName());
         }
 
-        TC_LOG_INFO("prisma", "%s, against %s !", player->GetName(), target->GetName());
     }
 
     void OnLeaveCombat(Player* player) override
@@ -92,8 +92,7 @@ private:
     */
     void InitializeWildCombat(Player* player, Prisma* target)
     {
-        TC_LOG_INFO("prisma", "Initialize - WildConfrontation");
-        int prisma_id = GetPrismaID(player);
+        uint32 prisma_id = Prisma::GetTeamID(player);
         if (prisma_id == 0) // player doesn't have any prisma
             return;
 
@@ -104,7 +103,7 @@ private:
         CombatCampPosition camp = GenerateCombatCamp(pivot, map, angle, COMBAT_RANGE_FROM_PIVOT);
         Position player_pos = GeneratePositionFromPivot(pivot, map, angle.player + (RAND_OFFSET_WILD_MASTER / 4.f), COMBAT_RANGE_MASTER_FROM_PIVOT);
 
-        _prismaStorage[player_guid] = PlayerInvokePrisma(prisma_id, player);
+        _prismaStorage[player_guid] = Prisma::Invoke(player, prisma_id);
         if (!_prismaStorage[player_guid]) // error prisma doesn't exist
         {
             TC_LOG_INFO("prisma", "Prisma with id:%u can't be spawn", prisma_id);
@@ -185,75 +184,6 @@ private:
         unit->GetMotionMaster()->MovePoint(0, loc, true, loc.GetRelativeAngle(targetPos));
     }
 
-    /*
-    * select the n `number` prisma of the player team 
-    */
-    uint32 GetPrismaID(Player* player, uint8 number = 0)
-    {
-        // equip can only have 6 prisma [0;5]
-        if (number > 5)
-            return 0;
-
-        // first select all the player team
-        PrismaDatabasePreparedStatement* stmt = PrismaDatabase.GetPreparedStatement(PRISMA_SEL_PLAYER_PRISMA);
-        stmt->setUInt32(0, player->GetGUID());
-        PreparedQueryResult result = PrismaDatabase.Query(stmt);
-
-        if (result)
-        {
-            // if guid == 0, then player doesn't have the desired prisma
-            uint32 prisma_guid = (*result)[number].GetUInt32();
-            if (prisma_guid == 0)
-                return 0;
-
-            // second select the id from the guid in `prisma_template` table
-            PrismaDatabasePreparedStatement* stmt_id = PrismaDatabase.GetPreparedStatement(PRISMA_SEL_PRISMA_ID_FROM_GUID);
-            stmt_id->setUInt32(0, prisma_guid);
-            PreparedQueryResult result_id = PrismaDatabase.Query(stmt_id);
-
-            if (result_id)
-            {
-                // if id == 0, then error
-                uint32 prisma_id = (*result_id)[0].GetUInt32();
-                if (prisma_id == 0)
-                {
-                    TC_LOG_INFO("prisma", "[ERROR]: Prisma with GUID:%u doesn't have ID in `prisma` table.", prisma_guid);
-                    return 0;
-                }
-
-                return prisma_id;
-            }
-        }
-
-        return 0;
-    }
-
-    Prisma* PlayerInvokePrisma(uint32 id, Player* owner)
-    {
-        Map* map = owner->GetMap();
-        Prisma* prisma = new Prisma();
-        if (!prisma->Create(map->GenerateLowGuid<HighGuid::Unit>(), map, owner->GetPhaseMaskForSpawn(), PRISMA_TEMPLATE_RESERVED_MIN + id, *owner))
-        {
-            delete prisma;
-            return nullptr;
-        }
-
-        prisma->SaveToDB(map->GetId(), (1 << map->GetSpawnMode()), owner->GetPhaseMaskForSpawn());
-        ObjectGuid::LowType db_guid = prisma->GetSpawnId();
-        prisma->CleanupsBeforeDelete();
-        delete prisma;
-
-        prisma = new Prisma();
-        if (!prisma->LoadFromDB(db_guid, map, true, true))
-        {
-            delete prisma;
-            return nullptr;
-        }
-
-        sObjectMgr->AddCreatureToGrid(db_guid, sObjectMgr->GetCreatureData(db_guid));
-        return prisma;
-    }
-
     void RemovePrisma(ObjectGuid guid)
     {
         if (Prisma* prisma = _prismaStorage[guid])
@@ -262,6 +192,10 @@ private:
             Prisma::DeleteFromDB(db_guid);
             prisma->CleanupsBeforeDelete();
             _prismaStorage.erase(guid);
+        }
+        else
+        {
+            TC_LOG_INFO("prisma", "no in storage");
         }
     }
 
