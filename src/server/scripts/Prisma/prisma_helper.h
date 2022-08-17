@@ -109,7 +109,7 @@ namespace PrismaHandler
         ENNEMY
     };
 
-    class PrismaStats
+    class PrismaStats_old
     {
     public:
         static float GetAttackCoefficient(Type attack, Type target_type);

@@ -2,7 +2,7 @@
 
 using namespace PrismaHandler;
 
-float PrismaStats::GetAttackCoefficient(Type attack, Type target_type)
+float PrismaStats_old::GetAttackCoefficient(Type attack, Type target_type)
 {
     switch (attack)
     {
@@ -58,12 +58,12 @@ float PrismaStats::GetAttackCoefficient(Type attack, Type target_type)
     }
 }
 
-float PrismaStats::GetAttackCoefficient(Type attack, Type target_type1, Type target_type2)
+float PrismaStats_old::GetAttackCoefficient(Type attack, Type target_type1, Type target_type2)
 {
     return (GetAttackCoefficient(attack, target_type1) * GetAttackCoefficient(attack, target_type2));
 }
 
-float PrismaStats::GetCoefficientTypeNormal(Type against)
+float PrismaStats_old::GetCoefficientTypeNormal(Type against)
 {
     switch (against)
     {
@@ -79,7 +79,7 @@ float PrismaStats::GetCoefficientTypeNormal(Type against)
     }
 }
 
-float PrismaStats::GetCoefficientTypeFire(Type against)
+float PrismaStats_old::GetCoefficientTypeFire(Type against)
 {
     switch (against)
     {
@@ -98,7 +98,7 @@ float PrismaStats::GetCoefficientTypeFire(Type against)
     }
 }
 
-float PrismaStats::GetCoefficientTypeWater(Type against)
+float PrismaStats_old::GetCoefficientTypeWater(Type against)
 {
     switch (against)
     {
@@ -117,7 +117,7 @@ float PrismaStats::GetCoefficientTypeWater(Type against)
     }
 }
 
-float PrismaStats::GetCoefficientTypeLightning(Type against)
+float PrismaStats_old::GetCoefficientTypeLightning(Type against)
 {
     switch (against)
     {
@@ -139,7 +139,7 @@ float PrismaStats::GetCoefficientTypeLightning(Type against)
     }
 }
 
-float PrismaStats::GetCoefficientTypeNature(Type against)
+float PrismaStats_old::GetCoefficientTypeNature(Type against)
 {
     switch (against)
     {
@@ -160,7 +160,7 @@ float PrismaStats::GetCoefficientTypeNature(Type against)
     }
 }
 
-float PrismaStats::GetCoefficientTypeIce(Type against)
+float PrismaStats_old::GetCoefficientTypeIce(Type against)
 {
     switch (against)
     {
@@ -181,7 +181,7 @@ float PrismaStats::GetCoefficientTypeIce(Type against)
     }
 }
 
-float PrismaStats::GetCoefficientTypeFighting(Type against)
+float PrismaStats_old::GetCoefficientTypeFighting(Type against)
 {
     switch (against)
     {
@@ -204,7 +204,7 @@ float PrismaStats::GetCoefficientTypeFighting(Type against)
     }
 }
 
-float PrismaStats::GetCoefficientTypePoison(Type against)
+float PrismaStats_old::GetCoefficientTypePoison(Type against)
 {
     switch (against)
     {
@@ -227,7 +227,7 @@ float PrismaStats::GetCoefficientTypePoison(Type against)
     }
 }
 
-float PrismaStats::GetCoefficientTypeEarth(Type against)
+float PrismaStats_old::GetCoefficientTypeEarth(Type against)
 {
     switch (against)
     {
@@ -249,7 +249,7 @@ float PrismaStats::GetCoefficientTypeEarth(Type against)
     }
 }
 
-float PrismaStats::GetCoefficientTypeAir(Type against)
+float PrismaStats_old::GetCoefficientTypeAir(Type against)
 {
     switch (against)
     {
@@ -268,7 +268,7 @@ float PrismaStats::GetCoefficientTypeAir(Type against)
     }
 }
 
-float PrismaStats::GetCoefficientTypePsionic(Type against)
+float PrismaStats_old::GetCoefficientTypePsionic(Type against)
 {
     switch (against)
     {
@@ -290,7 +290,7 @@ float PrismaStats::GetCoefficientTypePsionic(Type against)
     }
 }
 
-float PrismaStats::GetCoefficientTypePhantom(Type against)
+float PrismaStats_old::GetCoefficientTypePhantom(Type against)
 {
     switch (against)
     {
@@ -311,7 +311,7 @@ float PrismaStats::GetCoefficientTypePhantom(Type against)
     }
 }
 
-float PrismaStats::GetCoefficientTypeDark(Type against)
+float PrismaStats_old::GetCoefficientTypeDark(Type against)
 {
     switch (against)
     {
@@ -331,7 +331,7 @@ float PrismaStats::GetCoefficientTypeDark(Type against)
     }
 }
 
-float PrismaStats::GetCoefficientTypeMetal(Type against)
+float PrismaStats_old::GetCoefficientTypeMetal(Type against)
 {
     switch (against)
     {
@@ -352,7 +352,7 @@ float PrismaStats::GetCoefficientTypeMetal(Type against)
     }
 }
 
-float PrismaStats::GetCoefficientTypeLight(Type against)
+float PrismaStats_old::GetCoefficientTypeLight(Type against)
 {
     switch (against)
     {
@@ -372,7 +372,7 @@ float PrismaStats::GetCoefficientTypeLight(Type against)
     }
 }
 
-float PrismaStats::GetCoefficientTypeSound(Type against)
+float PrismaStats_old::GetCoefficientTypeSound(Type against)
 {
     switch (against)
     {
