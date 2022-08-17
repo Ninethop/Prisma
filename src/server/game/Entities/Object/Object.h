@@ -37,6 +37,7 @@
 
 class Corpse;
 class Creature;
+class Prisma;
 class CreatureAI;
 class DynamicObject;
 class GameObject;
@@ -176,6 +177,12 @@ class TC_GAME_API Object
         static Creature const* ToCreature(Object const* o) { return o ? o->ToCreature() : nullptr; }
         Creature* ToCreature() { if (IsCreature()) return reinterpret_cast<Creature*>(this); else return nullptr; }
         Creature const* ToCreature() const { if (IsCreature()) return reinterpret_cast<Creature const*>(this); else return nullptr; }
+
+        inline bool IsPrisma() const { return GetTypeId() == TYPEID_UNIT; }
+        static Prisma* ToPrisma(Object* o) { return o ? o->ToPrisma() : nullptr; }
+        static Prisma const* ToPrisma(Object const* o) { return o ? o->ToPrisma() : nullptr; }
+        Prisma* ToPrisma() { if (IsPrisma()) return reinterpret_cast<Prisma*>(this); else return nullptr; }
+        Prisma const* ToPrisma() const { if (IsPrisma()) return reinterpret_cast<Prisma const*>(this); else return nullptr; }
 
         inline bool IsUnit() const { return isType(TYPEMASK_UNIT); }
         static Unit* ToUnit(Object* o) { return o ? o->ToUnit() : nullptr; }
