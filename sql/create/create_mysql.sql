@@ -2,11 +2,15 @@ CREATE USER 'trinity'@'localhost' IDENTIFIED BY 'trinity' WITH MAX_QUERIES_PER_H
 
 GRANT USAGE ON * . * TO 'trinity'@'localhost';
 
+CREATE DATABASE `prisma` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;
+
 CREATE DATABASE `world` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;
 
 CREATE DATABASE `characters` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;
 
 CREATE DATABASE `auth` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;
+
+GRANT ALL PRIVILEGES ON `prisma` . * TO `trinity`@`localhost` WITH GRANT OPTION;
 
 GRANT ALL PRIVILEGES ON `world` . * TO 'trinity'@'localhost' WITH GRANT OPTION;
 
