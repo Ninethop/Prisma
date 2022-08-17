@@ -282,6 +282,7 @@ extern int main(int argc, char** argv)
         TC_METRIC_VALUE("db_queue_login", uint64(LoginDatabase.QueueSize()));
         TC_METRIC_VALUE("db_queue_character", uint64(CharacterDatabase.QueueSize()));
         TC_METRIC_VALUE("db_queue_world", uint64(WorldDatabase.QueueSize()));
+        TC_METRIC_VALUE("db_queue_prisma", uint64(PrismaDatabase.QueueSize()));
     });
 
     TC_METRIC_EVENT("events", "Worldserver started", "");
@@ -484,6 +485,7 @@ void WorldUpdateLoop()
     LoginDatabase.WarnAboutSyncQueries(true);
     CharacterDatabase.WarnAboutSyncQueries(true);
     WorldDatabase.WarnAboutSyncQueries(true);
+    PrismaDatabase.WarnAboutSyncQueries(true);
 
     ///- While we have not World::m_stopEvent, update the world
     while (!World::IsStopped())
@@ -514,6 +516,7 @@ void WorldUpdateLoop()
     LoginDatabase.WarnAboutSyncQueries(false);
     CharacterDatabase.WarnAboutSyncQueries(false);
     WorldDatabase.WarnAboutSyncQueries(false);
+    PrismaDatabase.WarnAboutSyncQueries(false);
 }
 
 void SignalHandler(boost::system::error_code const& error, int /*signalNumber*/)
@@ -623,7 +626,8 @@ bool StartDB()
     loader
         .AddDatabase(LoginDatabase, "Login")
         .AddDatabase(CharacterDatabase, "Character")
-        .AddDatabase(WorldDatabase, "World");
+        .AddDatabase(WorldDatabase, "World")
+        .AddDatabase(PrismaDatabase, "Prisma");
 
     if (!loader.Load())
         return false;
@@ -655,6 +659,7 @@ void StopDB()
     CharacterDatabase.Close();
     WorldDatabase.Close();
     LoginDatabase.Close();
+    PrismaDatabase.Close();
 
     MySQL::Library_End();
 }
