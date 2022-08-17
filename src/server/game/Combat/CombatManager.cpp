@@ -20,6 +20,7 @@
 #include "Unit.h"
 #include "CreatureAI.h"
 #include "Player.h"
+#include "ScriptMgr.h"
 #ifdef ELUNA
 #include "LuaEngine.h"
 #endif
@@ -77,24 +78,34 @@ void CombatReference::EndCombat()
     bool const needSecondAI = second->GetCombatManager().UpdateOwnerCombatState();
 
     // ...and if that happened, also notify the AI of it...
-#ifdef ELUNA
+
     if (needFirstAI)
     {
         if (Player* player = first->ToPlayer())
+        {
+            sScriptMgr->OnLeaveCombat(player);
+#ifdef ELUNA
             sEluna->OnPlayerLeaveCombat(player);
+#endif
+        }
+
+        if (UnitAI* firstAI = first->GetAI())
+            firstAI->JustExitedCombat();
     }
+
     if (needSecondAI)
     {
         if (Player* player = second->ToPlayer())
+        {
+            sScriptMgr->OnLeaveCombat(player);
+#ifdef ELUNA
             sEluna->OnPlayerLeaveCombat(player);
-    }
 #endif
-    if (needFirstAI)
-        if (UnitAI* firstAI = first->GetAI())
-            firstAI->JustExitedCombat();
-    if (needSecondAI)
+        }
+
         if (UnitAI* secondAI = second->GetAI())
             secondAI->JustExitedCombat();
+    }
 
     // ...and finally clean up the reference object
     delete this;
@@ -135,10 +146,14 @@ void PvPCombatReference::SuppressFor(Unit* who)
     Suppress(who);
     if (who->GetCombatManager().UpdateOwnerCombatState())
     {
-#ifdef ELUNA
         if (Player* player = who->ToPlayer())
+        {
+            sScriptMgr->OnLeaveCombat(player);
+#ifdef ELUNA
             sEluna->OnPlayerLeaveCombat(player);
 #endif
+        }
+
         if (UnitAI* ai = who->GetAI())
             ai->JustExitedCombat();
     }
@@ -304,10 +319,14 @@ void CombatManager::SuppressPvPCombat()
         pair.second->Suppress(_owner);
     if (UpdateOwnerCombatState())
     {
-#ifdef ELUNA
         if (Player* player = _owner->ToPlayer())
+        {
+            sScriptMgr->OnLeaveCombat(player);
+#ifdef ELUNA
             sEluna->OnPlayerLeaveCombat(player);
 #endif
+        }
+
         if (UnitAI* ownerAI = _owner->GetAI())
             ownerAI->JustExitedCombat();
     }
@@ -359,10 +378,14 @@ void CombatManager::EndAllPvPCombat()
 
 /*static*/ void CombatManager::NotifyAICombat(Unit* me, Unit* other)
 {
-#ifdef ELUNA
     if (Player* player = me->ToPlayer())
+    {
+        sScriptMgr->OnEnterCombat(player, other);
+#ifdef ELUNA
         sEluna->OnPlayerEnterCombat(player, other);
 #endif
+    }
+
     if (UnitAI* ai = me->GetAI())
         ai->JustEnteredCombat(other);
 }
