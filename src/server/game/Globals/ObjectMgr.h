@@ -21,6 +21,7 @@
 #include "Common.h"
 #include "ConditionMgr.h"
 #include "CreatureData.h"
+#include "PrismaData.h"
 #include "DatabaseEnvFwd.h"
 #include "Errors.h"
 #include "GameObjectData.h"
@@ -539,6 +540,7 @@ struct QuestGreetingLocale
 
 typedef std::map<ObjectGuid, ObjectGuid> LinkedRespawnContainer;
 typedef std::unordered_map<uint32, CreatureTemplate> CreatureTemplateContainer;
+typedef std::unordered_map<uint32, PrismaTemplate> PrismaTemplateContainer;
 typedef std::unordered_map<uint32, CreatureAddon> CreatureTemplateAddonContainer;
 typedef std::unordered_map<ObjectGuid::LowType, CreatureData> CreatureDataContainer;
 typedef std::unordered_map<ObjectGuid::LowType, CreatureAddon> CreatureAddonContainer;
@@ -979,6 +981,8 @@ class TC_GAME_API ObjectMgr
 
         CreatureTemplate const* GetCreatureTemplate(uint32 entry) const;
         CreatureTemplateContainer const& GetCreatureTemplates() const { return _creatureTemplateStore; }
+        PrismaTemplate const* GetPrismaTemplate(uint32 entry) const;
+        PrismaTemplateContainer const& GetPrismaTemplates() const { return _prismaTemplateStore; }
         CreatureModelInfo const* GetCreatureModelInfo(uint32 modelId) const;
         CreatureModelInfo const* GetCreatureModelRandomGender(uint32* displayID) const;
         static uint32 ChooseDisplayId(CreatureTemplate const* cinfo, CreatureData const* data = nullptr);
@@ -1153,9 +1157,12 @@ class TC_GAME_API ObjectMgr
         void LoadBroadcastTextLocales();
         void LoadCreatureClassLevelStats();
         void LoadCreatureLocales();
+        void LoadPrismaTemplates();
+        void PopulateCreatureFromPrisma();
         void LoadCreatureTemplates();
         void LoadCreatureTemplateAddons();
         void LoadCreatureTemplate(Field* fields);
+        void LoadPrismaTemplate(Field* fields);
         void LoadCreatureTemplateResistances();
         void LoadCreatureTemplateSpells();
         void CheckCreatureTemplate(CreatureTemplate const* cInfo);
@@ -1688,6 +1695,7 @@ class TC_GAME_API ObjectMgr
         MapObjectGuids _mapObjectGuidsStore;
         CreatureDataContainer _creatureDataStore;
         CreatureTemplateContainer _creatureTemplateStore;
+        PrismaTemplateContainer _prismaTemplateStore;
         CreatureModelContainer _creatureModelStore;
         CreatureAddonContainer _creatureAddonStore;
         CreatureTemplateAddonContainer _creatureTemplateAddonStore;

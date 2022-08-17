@@ -1780,6 +1780,12 @@ void World::SetInitialWorldSettings()
     TC_LOG_INFO("server.loading", "Loading Creature Model Based Info Data...");
     sObjectMgr->LoadCreatureModelInfo();
 
+    TC_LOG_INFO("server.loading", "Loading Prisma templates...");
+    sObjectMgr->LoadPrismaTemplates();
+
+    TC_LOG_INFO("server.loading", "Populate `creature_template` from `prisma_template`...");
+    sObjectMgr->PopulateCreatureFromPrisma();
+
     TC_LOG_INFO("server.loading", "Loading Creature templates...");
     sObjectMgr->LoadCreatureTemplates();
 

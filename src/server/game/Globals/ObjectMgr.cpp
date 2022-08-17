@@ -616,6 +616,128 @@ void ObjectMgr::LoadCreatureTemplate(Field* fields)
     creatureTemplate.ScriptID              = GetScriptId(fields[63].GetString());
 }
 
+void ObjectMgr::LoadPrismaTemplates()
+{
+    uint32 oldMSTime = getMSTime();
+
+    QueryResult result = PrismaDatabase.Query(
+        //  0
+        "SELECT ID,"
+        //  1
+        "Name,"
+        //  2
+        "Description,"
+        //  3
+        "DisplayID,"
+        //  4
+        "Scale,"
+        //  5
+        "EvolveLevel,"
+        //  6
+        "EvolveID,"
+        //  7
+        "Type,"
+        //  8
+        "BaseExperience,"
+        //  9
+        "Stamina,"
+        //  10
+        "Attack,"
+        // 11
+        "Defense,"
+        // 12
+        "SpecialAttack,"
+        // 13
+        "SpecialDefense,"
+        // 14
+        "Speed,"
+        // 15
+        "EVStamina,"
+        // 16
+        "EVAttack,"
+        // 17
+        "EVDefense,"
+        // 18
+        "EVSpecialAttack,"
+        // 19
+        "EVSpecialDefense,"
+        // 20
+        "EVSpeed"
+        " FROM prisma_template");
+
+    if (!result)
+    {
+        TC_LOG_INFO("server.loading", ">> Loaded 0 prisma template definitions. DB table `prisma_template` is empty.");
+        return;
+    }
+
+    _prismaTemplateStore.reserve(result->GetRowCount());
+    do
+    {
+        Field* fields = result->Fetch();
+        LoadPrismaTemplate(fields);
+    } while (result->NextRow());
+
+    // Checking needs to be done after loading because of the difficulty self referencing
+    //for (auto const& ctPair : _prismaTemplateStore)
+        //CheckPrismaTemplate(&ctPair.second);
+
+    TC_LOG_INFO("server.loading", ">> Loaded " SZFMTD " prisma definitions in %u ms", _prismaTemplateStore.size(), GetMSTimeDiffToNow(oldMSTime));
+}
+
+void ObjectMgr::LoadPrismaTemplate(Field* fields)
+{
+    uint32 entry = fields[0].GetUInt32();
+    PrismaTemplate& prismaTemplate = _prismaTemplateStore[entry];
+
+    prismaTemplate.Entry            = entry;
+    prismaTemplate.Name             = fields[1].GetString();
+    prismaTemplate.Description      = fields[2].GetString();
+    prismaTemplate.DisplayID        = fields[3].GetInt32();
+    prismaTemplate.Scale            = fields[4].GetFloat();
+    prismaTemplate.EvolveLevel      = fields[5].GetInt32();
+    prismaTemplate.EvolveID         = fields[6].GetInt32();
+    prismaTemplate.Type             = fields[7].GetUInt32();
+    prismaTemplate.BaseExperience   = fields[8].GetUInt32();
+    prismaTemplate.Stamina          = fields[9].GetUInt32();
+    prismaTemplate.Attack           = fields[10].GetUInt32();
+    prismaTemplate.Defense          = fields[11].GetUInt32();
+    prismaTemplate.SpecialAttack    = fields[12].GetUInt32();
+    prismaTemplate.SpecialDefense   = fields[13].GetUInt32();
+    prismaTemplate.Speed            = fields[14].GetUInt32();
+    prismaTemplate.EVStamina        = fields[15].GetUInt32();
+    prismaTemplate.EVAttack         = fields[16].GetUInt32();
+    prismaTemplate.EVDefense        = fields[17].GetUInt32();
+    prismaTemplate.EVSpecialAttack  = fields[18].GetUInt32();
+    prismaTemplate.EVSpecialDefense = fields[19].GetUInt32();
+    prismaTemplate.EVSpeed          = fields[20].GetUInt32();
+}
+
+void ObjectMgr::PopulateCreatureFromPrisma()
+{
+    uint32 oldMSTime = getMSTime();
+
+    if (_prismaTemplateStore.size() == 0)
+    {
+        TC_LOG_INFO("server.loading", ">> Populated 0 `creature_template` from `prisma_template`. DB table `prisma_template` is empty.");
+        return;
+    }        
+
+    int count = 0;
+    for (auto prisma : _prismaTemplateStore)
+    {
+        WorldDatabasePreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_REP_PRISMA_TEMPLATE);
+        stmt->setUInt32(0, 45000 + prisma.first); // entry
+        stmt->setUInt32(1, prisma.second.DisplayID);
+        stmt->setString(2, prisma.second.Name);
+        stmt->setUInt32(3, prisma.second.Scale);
+        WorldDatabase.Execute(stmt);
+        count++;
+    }
+
+    TC_LOG_INFO("server.loading", ">> Populated " SZFMTD " `creature_template` from `prisma_template` in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
+}
+
 void ObjectMgr::LoadCreatureTemplateResistances()
 {
     uint32 oldMSTime = getMSTime();
@@ -10231,6 +10353,11 @@ GameObjectOverride const* ObjectMgr::GetGameObjectOverride(ObjectGuid::LowType s
 CreatureTemplate const* ObjectMgr::GetCreatureTemplate(uint32 entry) const
 {
     return Trinity::Containers::MapGetValuePtr(_creatureTemplateStore, entry);
+}
+
+PrismaTemplate const* ObjectMgr::GetPrismaTemplate(uint32 entry) const
+{
+    return Trinity::Containers::MapGetValuePtr(_prismaTemplateStore, entry);
 }
 
 QuestPOIWrapper const* ObjectMgr::GetQuestPOIWrapper(uint32 questId) const
