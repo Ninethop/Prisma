@@ -729,50 +729,54 @@ void ObjectMgr::LoadPrismaDatas()
         // 1
         "ID,"
         // 2
-        "Level,"
+        "Gender,"
         // 3
-        "Experience,"
+        "Nature,"
         // 4
-        "Item,"
+        "Level,"
         // 5
-        "IV_Stamina,"
+        "Experience,"
         // 6
-        "IV_Attack,"
+        "Item,"
         // 7
-        "IV_Defense,"
+        "IV_Stamina,"
         // 8
-        "IV_SpecialAttack,"
+        "IV_Attack,"
         // 9
-        "IV_SpecialDefense,"
+        "IV_Defense,"
         // 10
-        "IV_Speed,"
+        "IV_SpecialAttack,"
         // 11
-        "EV_Stamina,"
+        "IV_SpecialDefense,"
         // 12
-        "EV_Attack,"
+        "IV_Speed,"
         // 13
-        "EV_Defense,"
+        "EV_Stamina,"
         // 14
-        "EV_SpecialAttack,"
+        "EV_Attack,"
         // 15
-        "EV_SpecialDefense,"
+        "EV_Defense,"
         // 16
-        "EV_Speed,"
+        "EV_SpecialAttack,"
         // 17
-        "Move_0,"
+        "EV_SpecialDefense,"
         // 18
-        "PP_Move_0,"
+        "EV_Speed,"
         // 19
-        "Move_1,"
+        "Move_0,"
         // 20
-        "PP_Move_1,"
+        "PP_Move_0,"
         // 21
-        "Move_2,"
+        "Move_1,"
         // 22
-        "PP_Move_2,"
+        "PP_Move_1,"
         // 23
-        "Move_3,"
+        "Move_2,"
         // 24
+        "PP_Move_2,"
+        // 25
+        "Move_3,"
+        // 26
         "PP_Move_3"
         " FROM prisma");
 
@@ -798,34 +802,47 @@ void ObjectMgr::LoadPrismaDatas()
 
 void ObjectMgr::LoadPrismaData(Field* fields)
 {
-    uint32 guid = fields[0].GetUInt32();
+    uint32 key = 0;
+
+    uint32 guid = fields[key++].GetUInt32();
     PrismaData& prismaData = _prismaDataStore[guid];
 
     prismaData.GUID = guid;
-    prismaData.ID = fields[1].GetUInt32();
-    prismaData.Level = fields[2].GetUInt32();
-    prismaData.Experience = fields[3].GetUInt32();
-    prismaData.Item = fields[4].GetInt32();
-    prismaData.IVStamina = fields[5].GetUInt32();
-    prismaData.IVAttack = fields[6].GetUInt32();
-    prismaData.IVDefense = fields[7].GetUInt32();
-    prismaData.IVSpecialAttack = fields[8].GetUInt32();
-    prismaData.IVSpecialDefense = fields[9].GetUInt32();
-    prismaData.IVSpeed = fields[10].GetUInt32();
-    prismaData.EVStamina = fields[11].GetUInt32();
-    prismaData.EVAttack = fields[12].GetUInt32();
-    prismaData.EVDefense = fields[13].GetUInt32();
-    prismaData.EVSpecialAttack = fields[14].GetUInt32();
-    prismaData.EVSpecialDefense = fields[15].GetUInt32();
-    prismaData.EVSpeed = fields[16].GetUInt32();
-    prismaData.Move0 = fields[17].GetInt32();
-    prismaData.PP_Move0 = fields[18].GetUInt32();
-    prismaData.Move1 = fields[19].GetInt32();
-    prismaData.PP_Move1 = fields[20].GetUInt32();
-    prismaData.Move2 = fields[21].GetInt32();
-    prismaData.PP_Move2 = fields[22].GetUInt32();
-    prismaData.Move3 = fields[23].GetInt32();
-    prismaData.PP_Move3 = fields[24].GetUInt32();
+    prismaData.ID = fields[key++].GetUInt32();
+
+    uint32 _gender = fields[key++].GetUInt32();
+    if (_gender >= NUM_MAX_PRISMA_GENDER)
+        _gender = 2;
+    prismaData.Gender = PrismaGenders(_gender);
+
+    uint32 _nature = fields[key++].GetUInt32();
+    if (_nature >= NUM_MAX_PRISMA_NATURE)
+        _nature = 0;
+    prismaData.Nature = PrismaNatures(_nature);
+
+    prismaData.Level = fields[key++].GetUInt32();
+    prismaData.Experience = fields[key++].GetUInt32();
+    prismaData.Item = fields[key++].GetInt32();
+    prismaData.IVStamina = fields[key++].GetUInt32();
+    prismaData.IVAttack = fields[key++].GetUInt32();
+    prismaData.IVDefense = fields[key++].GetUInt32();
+    prismaData.IVSpecialAttack = fields[key++].GetUInt32();
+    prismaData.IVSpecialDefense = fields[key++].GetUInt32();
+    prismaData.IVSpeed = fields[key++].GetUInt32();
+    prismaData.EVStamina = fields[key++].GetUInt32();
+    prismaData.EVAttack = fields[key++].GetUInt32();
+    prismaData.EVDefense = fields[key++].GetUInt32();
+    prismaData.EVSpecialAttack = fields[key++].GetUInt32();
+    prismaData.EVSpecialDefense = fields[key++].GetUInt32();
+    prismaData.EVSpeed = fields[key++].GetUInt32();
+    prismaData.Move0 = fields[key++].GetInt32();
+    prismaData.PP_Move0 = fields[key++].GetUInt32();
+    prismaData.Move1 = fields[key++].GetInt32();
+    prismaData.PP_Move1 = fields[key++].GetUInt32();
+    prismaData.Move2 = fields[key++].GetInt32();
+    prismaData.PP_Move2 = fields[key++].GetUInt32();
+    prismaData.Move3 = fields[key++].GetInt32();
+    prismaData.PP_Move3 = fields[key++].GetUInt32();
 }
 
 void ObjectMgr::LoadPrismaMoveTemplates()

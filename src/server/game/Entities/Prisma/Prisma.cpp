@@ -3,7 +3,7 @@
 
 Prisma::Prisma(bool isWorldObject)
     : Creature(isWorldObject), _iv_generated(false), _nature_generated(false), _gender_generated(false),
-    m_guid(0), m_id(0), m_experience(0), m_item(-1)
+    m_guid(0), m_id(0), m_experience(0), m_item(-1), m_level(1)
 { }
 
 void Prisma::InitializePrisma()
@@ -19,45 +19,50 @@ void Prisma::InitializePrisma()
         GenerateGender();
 }
 
-void Prisma::InitializePrismaFromGuid(uint32 guid)
+bool Prisma::InitializePrismaFromGuid(uint32 guid)
 {
-    PrismaDatabasePreparedStatement* stmt = PrismaDatabase.GetPreparedStatement(PRISMA_SEL_PRISMA_FROM_GUID);
-    stmt->setUInt32(0, guid);
-    PreparedQueryResult result = PrismaDatabase.Query(stmt);
-
-    if (result)
+    const PrismaData* data = sObjectMgr->GetPrismaData(guid);
+    if (data)
     {
-        uint8 index = 0;
-
-        m_guid = (*result)[index++].GetUInt32();
-        m_id = (*result)[index++].GetUInt32();
-        SetLevel((*result)[index++].GetUInt32());
-        m_experience = (*result)[index++].GetUInt32();
-        m_item = (*result)[index++].GetInt32();
+        m_guid = guid;
+        m_id = data->ID;
+        _gender.gender = uint8(data->Gender);
+        _nature.nature = uint8(data->Nature);
+        m_level = data->Level;
+        m_experience = data->Experience;
+        m_item = data->Item;
         // individual value
-        _iv.stamina = (*result)[index++].GetUInt32();
-        _iv.attack = (*result)[index++].GetUInt32();
-        _iv.defense = (*result)[index++].GetUInt32();
-        _iv.special_attack = (*result)[index++].GetUInt32();
-        _iv.special_defense = (*result)[index++].GetUInt32();
-        _iv.speed = (*result)[index++].GetUInt32();
+        _iv.stamina = data->IVStamina;
+        _iv.attack = data->IVAttack;
+        _iv.defense = data->IVDefense;
+        _iv.special_attack = data->IVSpecialAttack;
+        _iv.special_defense = data->IVSpecialDefense;
+        _iv.speed = data->IVSpeed;
+        GenerateCharacteristic();
         // effort value
-        _ev.stamina = (*result)[index++].GetUInt32();
-        _ev.attack = (*result)[index++].GetUInt32();
-        _ev.defense = (*result)[index++].GetUInt32();
-        _ev.special_attack = (*result)[index++].GetUInt32();
-        _ev.special_defense = (*result)[index++].GetUInt32();
-        _ev.speed = (*result)[index++].GetUInt32();
+        _ev.stamina = data->EVStamina;
+        _ev.attack = data->EVAttack;
+        _ev.defense = data->EVDefense;
+        _ev.special_attack = data->EVSpecialAttack;
+        _ev.special_defense = data->EVSpecialDefense;
+        _ev.speed = data->EVSpeed;
         // move
-        _move.move0 = (*result)[index++].GetInt32();
-        _move.pp_move0 = (*result)[index++].GetUInt32();
-        _move.move1 = (*result)[index++].GetInt32();
-        _move.pp_move1 = (*result)[index++].GetUInt32();
-        _move.move2 = (*result)[index++].GetInt32();
-        _move.pp_move2 = (*result)[index++].GetUInt32();
-        _move.move3 = (*result)[index++].GetInt32();
-        _move.pp_move3 = (*result)[index++].GetUInt32();
+        _move.move0 = data->Move0;
+        _move.pp_move0 = data->PP_Move0;
+        _move.move1 = data->Move1;
+        _move.pp_move1 = data->PP_Move1;
+        _move.move2 = data->Move2;
+        _move.pp_move2 = data->PP_Move2;
+        _move.move3 = data->Move3;
+        _move.pp_move3 = data->PP_Move3;
+
+        _iv_generated = true;
+        _nature_generated = true;
+        _gender_generated = true;
+        return true;
     }
+
+    return false;
 }
 
 uint16 Prisma::CalculateStat(PrismaStats _stat)
@@ -131,7 +136,9 @@ void Prisma::SavePrismaToDB()
 
     data.GUID = m_guid;
     data.ID = GetPrismaEntry();
-    data.Level = GetLevel();
+    data.Gender = _gender.GetGender();
+    data.Nature = _nature.GetNature();
+    data.Level = m_level;
     data.Experience = m_experience;
     data.Item = m_item;
     data.IVStamina = _iv.stamina;
@@ -164,6 +171,8 @@ void Prisma::SavePrismaToDB()
     stmt = PrismaDatabase.GetPreparedStatement(PRISMA_INS_PRISMA);
     stmt->setUInt32(index++, data.GUID);
     stmt->setUInt32(index++, data.ID);
+    stmt->setUInt32(index++, uint32(data.Gender));
+    stmt->setUInt32(index++, uint32(data.Nature));
     stmt->setUInt32(index++, data.Level);
     stmt->setUInt32(index++, data.Experience);
     stmt->setInt32(index++, data.Item);
@@ -192,14 +201,35 @@ void Prisma::SavePrismaToDB()
     PrismaDatabase.CommitTransaction(trans);
 }
 
+bool Prisma::HasPrisma(Player* player)
+{
+    // first select all the player team
+    PrismaDatabasePreparedStatement* stmt = PrismaDatabase.GetPreparedStatement(PRISMA_SEL_PLAYER_PRISMA);
+    stmt->setUInt32(0, player->GetGUID());
+    PreparedQueryResult result = PrismaDatabase.Query(stmt);
+
+    if (result)
+    {
+        for (int i = 0; i < 6; ++i)
+        {
+            if ((*result)[i].GetUInt32() > 0)
+                return true;
+        }
+    }
+
+    return false;
+}
+
 uint32 Prisma::GenerateGUID()
 {
     return ObjectMgr::GeneratePrismaGuid();
 }
 
 // this add to grid and to DB `creature`
-Prisma* Prisma::Invoke(Player* owner, uint32 id)
+Prisma* Prisma::Invoke(Player* owner, uint8 num)
 {
+    uint32 id = Prisma::GetTeamID(owner, num);
+    uint32 guid = Prisma::GetTeamGUID(owner, num);
     Map* map = owner->GetMap();
     Prisma* prisma = new Prisma();
     if (!prisma->Create(map->GenerateLowGuid<HighGuid::Unit>(), map, owner->GetPhaseMaskForSpawn(), PRISMA_TEMPLATE_RESERVED_MIN + id, *owner))
@@ -214,6 +244,7 @@ Prisma* Prisma::Invoke(Player* owner, uint32 id)
     delete prisma;
 
     prisma = new Prisma();
+    prisma->InitializePrismaFromGuid(guid);
     if (!prisma->LoadFromDB(db_guid, map, true, true))
     {
         delete prisma;
@@ -226,8 +257,7 @@ Prisma* Prisma::Invoke(Player* owner, uint32 id)
 
 uint32 Prisma::GetTeamID(Player* player, uint8 num)
 {
-    if (num > 5)
-        return uint32(0);
+    if (num > 5) num = 0;
 
     // first select all the player team
     PrismaDatabasePreparedStatement* stmt = PrismaDatabase.GetPreparedStatement(PRISMA_SEL_PLAYER_PRISMA);
@@ -247,20 +277,26 @@ uint32 Prisma::GetTeamID(Player* player, uint8 num)
         PreparedQueryResult result_id = PrismaDatabase.Query(stmt_id);
 
         if (result_id)
-        {
-            // if id == 0, then error
-            uint32 prisma_id = (*result_id)[0].GetUInt32();
-            if (prisma_id == 0)
-            {
-                TC_LOG_INFO("prisma", "[ERROR]: Prisma with GUID:%u doesn't have ID in `prisma` table.", prisma_guid);
-                return uint32(0);
-            }
+            return (*result_id)[0].GetUInt32();
 
-            return prisma_id;
-        }
     }
 
-    return uint32(0);
+    return 0;
+}
+
+uint32 Prisma::GetTeamGUID(Player* player, uint8 num)
+{
+    if (num > 5) num = 0;
+
+    // first select all the player team
+    PrismaDatabasePreparedStatement* stmt = PrismaDatabase.GetPreparedStatement(PRISMA_SEL_PLAYER_PRISMA);
+    stmt->setUInt32(0, player->GetGUID());
+    PreparedQueryResult result = PrismaDatabase.Query(stmt);
+
+    if (result)
+        return (*result)[num].GetUInt32();
+
+    return 0;
 }
 
 void Prisma::GenerateIndividualValue()

@@ -178,6 +178,8 @@ struct TC_GAME_API PrismaData
 {
     uint32 GUID;
     uint32 ID; // refer to PrismaTemplate
+    PrismaGenders Gender;
+    PrismaNatures Nature;
     uint32 Level;
     uint32 Experience;
     int32 Item;

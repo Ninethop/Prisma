@@ -12,15 +12,17 @@ public:
     explicit Prisma(bool isWorldObject = false);
 
     void InitializePrisma();
-    void InitializePrismaFromGuid(uint32 guid);
+    bool InitializePrismaFromGuid(uint32 guid);
     uint32 GetPrismaEntry() { return (GetEntry() - PRISMA_TEMPLATE_RESERVED_MIN); }
     uint16 CalculateStat(PrismaStats _stat);
 
     void SavePrismaToDB();
 
+    static bool HasPrisma(Player* player);
     static uint32 GenerateGUID();
-    static Prisma* Invoke(Player* owner, uint32 id);
+    static Prisma* Invoke(Player* owner, uint8 num = 0);
     static uint32 GetTeamID(Player* player, uint8 num = 0);
+    static uint32 GetTeamGUID(Player* player, uint8 num = 0);
 
     bool IndividualValueIsGenerated() { return _iv_generated; };
     PrismaIndividualValue const GetIV() { return _iv; };
@@ -48,6 +50,7 @@ private:
     uint32 m_id;
     uint32 m_experience;
     int32 m_item;
+    uint32 m_level;
 
     PrismaIndividualValue _iv;
     PrismaEffortValue _ev;

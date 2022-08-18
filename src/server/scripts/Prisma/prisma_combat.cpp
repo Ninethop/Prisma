@@ -94,8 +94,7 @@ private:
     */
     void InitializeWildCombat(Player* player, Prisma* target)
     {
-        uint32 prisma_id = Prisma::GetTeamID(player);
-        if (prisma_id == 0) // player doesn't have any prisma
+        if (!Prisma::HasPrisma(player))
             return;
 
         Map* map = player->GetMap();
@@ -105,10 +104,10 @@ private:
         CombatCampPosition camp = GenerateCombatCamp(pivot, map, angle, COMBAT_RANGE_FROM_PIVOT);
         Position player_pos = GeneratePositionFromPivot(pivot, map, angle.player + (RAND_OFFSET_WILD_MASTER / 4.f), COMBAT_RANGE_MASTER_FROM_PIVOT);
 
-        _prismaStorage[player_guid] = Prisma::Invoke(player, prisma_id);
+        _prismaStorage[player_guid] = Prisma::Invoke(player);
         if (!_prismaStorage[player_guid]) // error prisma doesn't exist
         {
-            TC_LOG_INFO("prisma", "Prisma with id:%u can't be spawn", prisma_id);
+            TC_LOG_INFO("prisma", "%s's prima can't be spawn", player->GetName());
             return;
         }
 
