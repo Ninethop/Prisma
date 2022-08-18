@@ -1,5 +1,4 @@
 
-#include "Prisma/prisma_helper.h"
 #include "ScriptMgr.h"
 #include "ObjectMgr.h"
 #include "Player.h"
@@ -7,8 +6,6 @@
 #include "Log.h"
 #include "DatabaseEnv.h"
 #include "Prisma.h"
-
-using namespace PrismaHandler;
 
 class PrismaCombat : public PlayerScript
 {
@@ -19,8 +16,8 @@ public:
 
     void OnPrismaKill(Player* player, Prisma* prisma) override
     {
-        int xp_gain = PrismaExperience::GetGainExperience(player->GetLevel(), prisma->GetLevel(), 64, true, false, 1, 1.f);
-        int xp_to_levelup = PrismaExperience::GetRequiredExperienceForNextLevel(player->GetLevel(), ExperienceType::MEDIUM_FAST);
+        int xp_gain = Prisma::GetGainExperience(player->GetLevel(), prisma->GetLevel(), 64, true, false, 1, 1.f);
+        int xp_to_levelup = Prisma::GetRequiredExperienceForNextLevel(player->GetLevel(), PrismaExperienceTypes::MEDIUM_FAST);
 
         TC_LOG_INFO("prisma", "PRI: You have gained %u experience", xp_gain);
         TC_LOG_INFO("prisma", "PRI: You need %u experience to level up", xp_to_levelup);
@@ -31,12 +28,17 @@ public:
         // initialize wild combat only if target is a simple prisma
         if (target->IsPrisma())
         {
-            TC_LOG_INFO("prisma", "%s, against %s !", player->GetName(), target->GetName());
             Prisma* prisma = target->ToPrisma();
+            prisma->SetLevel(irand(5,20));
             prisma->InitializePrisma();
+
+            TC_LOG_INFO("prisma", "%s, against %s (%u)!", player->GetName(), target->GetName(), target->GetLevel());
 
             InitializeWildCombat(player, prisma);
 
+            TC_LOG_INFO("prisma", "%s stat = stamina:%u - attack:%u - defense:%u - special_attack:%u - special_defense:%u - speed:%u", prisma->GetName(),
+                prisma->CalculateStat(PrismaStats::STAMINA), prisma->CalculateStat(PrismaStats::ATTACK), prisma->CalculateStat(PrismaStats::DEFENSE),
+                prisma->CalculateStat(PrismaStats::SPECIAL_ATTACK), prisma->CalculateStat(PrismaStats::SPECIAL_DEFENSE), prisma->CalculateStat(PrismaStats::SPEED));
             TC_LOG_INFO("prisma", "%s Individual Values = stamina:%u - attack:%u - defense:%u - special_attack:%u - special_defense:%u - speed:%u", prisma->GetName(),
                 prisma->GetStatIV(PrismaStats::STAMINA), prisma->GetStatIV(PrismaStats::ATTACK), prisma->GetStatIV(PrismaStats::DEFENSE),
                 prisma->GetStatIV(PrismaStats::SPECIAL_ATTACK), prisma->GetStatIV(PrismaStats::SPECIAL_DEFENSE), prisma->GetStatIV(PrismaStats::SPEED));
