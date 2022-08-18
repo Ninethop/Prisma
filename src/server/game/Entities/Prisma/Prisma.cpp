@@ -2,7 +2,8 @@
 #include "Prisma.h"
 
 Prisma::Prisma(bool isWorldObject)
-    : Creature(isWorldObject), _iv_generated(false), _nature_generated(false), _gender_generated(false)
+    : Creature(isWorldObject), _iv_generated(false), _nature_generated(false), _gender_generated(false),
+    m_guid(0), m_id(0), m_experience(0), m_item(-1)
 { }
 
 void Prisma::InitializePrisma()
@@ -20,7 +21,180 @@ void Prisma::InitializePrisma()
 
 void Prisma::InitializePrismaFromGuid(uint32 guid)
 {
+    PrismaDatabasePreparedStatement* stmt = PrismaDatabase.GetPreparedStatement(PRISMA_SEL_PRISMA_FROM_GUID);
+    stmt->setUInt32(0, guid);
+    PreparedQueryResult result = PrismaDatabase.Query(stmt);
 
+    if (result)
+    {
+        uint8 index = 0;
+
+        m_guid = (*result)[index++].GetUInt32();
+        m_id = (*result)[index++].GetUInt32();
+        SetLevel((*result)[index++].GetUInt32());
+        m_experience = (*result)[index++].GetUInt32();
+        m_item = (*result)[index++].GetInt32();
+        // individual value
+        _iv.stamina = (*result)[index++].GetUInt32();
+        _iv.attack = (*result)[index++].GetUInt32();
+        _iv.defense = (*result)[index++].GetUInt32();
+        _iv.special_attack = (*result)[index++].GetUInt32();
+        _iv.special_defense = (*result)[index++].GetUInt32();
+        _iv.speed = (*result)[index++].GetUInt32();
+        // effort value
+        _ev.stamina = (*result)[index++].GetUInt32();
+        _ev.attack = (*result)[index++].GetUInt32();
+        _ev.defense = (*result)[index++].GetUInt32();
+        _ev.special_attack = (*result)[index++].GetUInt32();
+        _ev.special_defense = (*result)[index++].GetUInt32();
+        _ev.speed = (*result)[index++].GetUInt32();
+        // move
+        _move.move0 = (*result)[index++].GetInt32();
+        _move.pp_move0 = (*result)[index++].GetUInt32();
+        _move.move1 = (*result)[index++].GetInt32();
+        _move.pp_move1 = (*result)[index++].GetUInt32();
+        _move.move2 = (*result)[index++].GetInt32();
+        _move.pp_move2 = (*result)[index++].GetUInt32();
+        _move.move3 = (*result)[index++].GetInt32();
+        _move.pp_move3 = (*result)[index++].GetUInt32();
+    }
+}
+
+uint16 Prisma::CalculateStat(PrismaStats _stat)
+{
+    const PrismaTemplate* _template = sObjectMgr->GetPrismaTemplate(GetPrismaEntry());
+    if (!_template)
+    {
+        if (_stat == PrismaStats::STAMINA) return MIN_STAMINA_VALUE;
+        else return MIN_STAT_VALUE;
+    }
+
+    if (_stat == PrismaStats::STAMINA)
+    {
+        uint16 numerator = ((2 * _template->Stamina) + _iv.stamina + (_ev.stamina / 4)) * GetLevel();
+        uint16 result = (numerator / 100) + (GetLevel() + 10);
+
+        (result < MIN_STAMINA_VALUE) ? result = MIN_STAMINA_VALUE : NULL;
+        return result;
+    }
+
+    uint16 base_value, iv_value, ev_value;
+    float nature_factor = 1.f + _nature.GetFactor(_stat);
+
+    if (_stat == PrismaStats::ATTACK)
+    {
+        base_value = _template->Attack;
+        iv_value = _iv.attack;
+        ev_value = _ev.attack;
+    }
+    else if (_stat == PrismaStats::DEFENSE)
+    {
+        base_value = _template->Defense;
+        iv_value = _iv.defense;
+        ev_value = _ev.defense;
+    }
+    else if (_stat == PrismaStats::SPECIAL_ATTACK)
+    {
+        base_value = _template->SpecialAttack;
+        iv_value = _iv.special_attack;
+        ev_value = _ev.special_attack;
+    }
+    else if (_stat == PrismaStats::SPECIAL_DEFENSE)
+    {
+        base_value = _template->SpecialDefense;
+        iv_value = _iv.special_defense;
+        ev_value = _ev.special_defense;
+    }
+    else // speed
+    {
+        base_value = _template->Speed;
+        iv_value = _iv.speed;
+        ev_value = _ev.speed;
+    }
+
+    uint16 numerator = (2 * base_value + iv_value + (ev_value / 4)) * GetLevel();
+    uint16 result = ((numerator / 100) + 5) * nature_factor;
+
+    (result < MIN_STAT_VALUE) ? result = MIN_STAT_VALUE : NULL;
+    return result;
+}
+
+/*
+    SAVE PRISMA INTO `prisma` TABLE
+*/
+void Prisma::SavePrismaToDB()
+{
+    if (!m_guid)
+        m_guid = Prisma::GenerateGUID();
+
+    PrismaData& data = sObjectMgr->NewOrExistPrismaData(m_guid);
+
+    data.GUID = m_guid;
+    data.ID = GetPrismaEntry();
+    data.Level = GetLevel();
+    data.Experience = m_experience;
+    data.Item = m_item;
+    data.IVStamina = _iv.stamina;
+    data.IVAttack = _iv.attack;
+    data.IVDefense = _iv.defense;
+    data.IVSpecialAttack = _iv.special_attack;
+    data.IVSpecialDefense = _iv.special_defense;
+    data.IVSpeed = _ev.speed;
+    data.EVStamina = _ev.stamina;
+    data.EVAttack = _ev.attack;
+    data.EVDefense = _ev.defense;
+    data.EVSpecialAttack = _ev.special_attack;
+    data.EVSpecialDefense = _ev.special_defense;
+    data.EVSpeed = _ev.speed;
+    data.Move0 = _move.move0;
+    data.PP_Move0 = _move.pp_move0;
+    data.Move1 = _move.move1;
+    data.PP_Move1 = _move.pp_move1;
+    data.Move2 = _move.pp_move2;
+    data.PP_Move2 = _move.pp_move2;
+    data.Move3 = _move.move3;
+    data.PP_Move3 = _move.pp_move3;
+
+    PrismaDatabaseTransation trans = PrismaDatabase.BeginTransaction();
+    PrismaDatabasePreparedStatement* stmt = PrismaDatabase.GetPreparedStatement(PRISMA_DEL_PRISMA);
+    stmt->setUInt32(0, m_guid);
+    trans->Append(stmt);
+
+    uint8 index = 0;
+    stmt = PrismaDatabase.GetPreparedStatement(PRISMA_INS_PRISMA);
+    stmt->setUInt32(index++, data.GUID);
+    stmt->setUInt32(index++, data.ID);
+    stmt->setUInt32(index++, data.Level);
+    stmt->setUInt32(index++, data.Experience);
+    stmt->setInt32(index++, data.Item);
+    stmt->setUInt32(index++, data.IVStamina);
+    stmt->setUInt32(index++, data.IVAttack);
+    stmt->setUInt32(index++, data.IVDefense);
+    stmt->setUInt32(index++, data.IVSpecialAttack);
+    stmt->setUInt32(index++, data.IVSpecialDefense);
+    stmt->setUInt32(index++, data.IVSpeed);
+    stmt->setUInt32(index++, data.EVStamina);
+    stmt->setUInt32(index++, data.EVAttack);
+    stmt->setUInt32(index++, data.EVDefense);
+    stmt->setUInt32(index++, data.EVSpecialAttack);
+    stmt->setUInt32(index++, data.EVSpecialDefense);
+    stmt->setUInt32(index++, data.EVSpeed);
+    stmt->setInt32(index++, data.Move0);
+    stmt->setUInt32(index++, data.PP_Move0);
+    stmt->setInt32(index++, data.Move1);
+    stmt->setUInt32(index++, data.PP_Move1);
+    stmt->setInt32(index++, data.Move2);
+    stmt->setUInt32(index++, data.PP_Move2);
+    stmt->setInt32(index++, data.Move3);
+    stmt->setUInt32(index++, data.PP_Move3);
+    trans->Append(stmt);
+
+    PrismaDatabase.CommitTransaction(trans);
+}
+
+uint32 Prisma::GenerateGUID()
+{
+    return ObjectMgr::GeneratePrismaGuid();
 }
 
 // this add to grid and to DB `creature`
@@ -113,12 +287,12 @@ void Prisma::GenerateCharacteristic()
         index = irand(0, max.size() - 1);
 
     PrismaStats _stat = max[index];
-    _characteristic.data = ((uint8)(_stat) * (NUM_MAX_STAT - 1)) + (_iv.GetStat(_stat) % 5);
+    _characteristic.data = ((uint8)(_stat) * (NUM_MAX_PRISMA_STAT - 1)) + (_iv.GetStat(_stat) % 5);
 }
 
 void Prisma::GenerateNature()
 {
-    _nature.Set(PrismaNatures(irand(0, NUM_MAX_NATURE - 1)));
+    _nature.Set(PrismaNatures(irand(0, NUM_MAX_PRISMA_NATURE - 1)));
     _nature_generated = true;
 }
 
@@ -138,4 +312,456 @@ void Prisma::GenerateGender()
     else _gender.Set(PrismaGenders::MALE);
 
     _gender_generated = true;
+}
+
+float Prisma::GetAttackCoefficient(PrismaTypes attack, PrismaTypes target_type)
+{
+    switch (attack)
+    {
+    default:
+    case PrismaTypes::NORMAL:
+        return GetCoefficientTypeNormal(target_type);
+        break;
+    case PrismaTypes::FIRE:
+        return GetCoefficientTypeFire(target_type);
+        break;
+    case PrismaTypes::WATER:
+        return GetCoefficientTypeWater(target_type);
+        break;
+    case PrismaTypes::LIGHTNING:
+        return GetCoefficientTypeLightning(target_type);
+        break;
+    case PrismaTypes::NATURE:
+        return GetCoefficientTypeNature(target_type);
+        break;
+    case PrismaTypes::ICE:
+        return GetCoefficientTypeIce(target_type);
+        break;
+    case PrismaTypes::FIGHTING:
+        return GetCoefficientTypeFighting(target_type);
+        break;
+    case PrismaTypes::POISON:
+        return GetCoefficientTypePoison(target_type);
+        break;
+    case PrismaTypes::EARTH:
+        return GetCoefficientTypeEarth(target_type);
+        break;
+    case PrismaTypes::AIR:
+        return GetCoefficientTypeAir(target_type);
+        break;
+    case PrismaTypes::PSIONIC:
+        return GetCoefficientTypePsionic(target_type);
+        break;
+    case PrismaTypes::PHANTOM:
+        return GetCoefficientTypePhantom(target_type);
+        break;
+    case PrismaTypes::DARK:
+        return GetCoefficientTypeDark(target_type);
+        break;
+    case PrismaTypes::METAL:
+        return GetCoefficientTypeMetal(target_type);
+        break;
+    case PrismaTypes::LIGHT:
+        return GetCoefficientTypeLight(target_type);
+        break;
+    case PrismaTypes::SOUND:
+        return GetCoefficientTypeSound(target_type);
+        break;
+    }
+}
+
+float Prisma::GetAttackCoefficient(PrismaTypes attack, PrismaTypes target_type1, PrismaTypes target_type2)
+{
+    return (GetAttackCoefficient(attack, target_type1) * GetAttackCoefficient(attack, target_type2));
+}
+
+float Prisma::GetCoefficientTypeNormal(PrismaTypes against)
+{
+    switch (against)
+    {
+    case PrismaTypes::PHANTOM:
+        return 0.0f;
+        break;
+    case PrismaTypes::METAL:
+        return 0.5f;
+        break;
+    default:
+        return 1.f;
+        break;
+    }
+}
+
+float Prisma::GetCoefficientTypeFire(PrismaTypes against)
+{
+    switch (against)
+    {
+    case PrismaTypes::FIRE:
+    case PrismaTypes::WATER:
+        return 0.5f;
+        break;
+    case PrismaTypes::NATURE:
+    case PrismaTypes::ICE:
+    case PrismaTypes::METAL:
+        return 2.f;
+        break;
+    default:
+        return 1.f;
+        break;
+    }
+}
+
+float Prisma::GetCoefficientTypeWater(PrismaTypes against)
+{
+    switch (against)
+    {
+    case PrismaTypes::FIRE:
+    case PrismaTypes::EARTH:
+        return 2.f;
+        break;
+    case PrismaTypes::WATER:
+    case PrismaTypes::NATURE:
+    case PrismaTypes::SOUND:
+        return 0.5f;
+        break;
+    default:
+        return 1.f;
+        break;
+    }
+}
+
+float Prisma::GetCoefficientTypeLightning(PrismaTypes against)
+{
+    switch (against)
+    {
+    case PrismaTypes::WATER:
+    case PrismaTypes::AIR:
+    case PrismaTypes::SOUND:
+        return 2.f;
+        break;
+    case PrismaTypes::LIGHTNING:
+    case PrismaTypes::NATURE:
+        return 0.5f;
+        break;
+    case PrismaTypes::EARTH:
+        return 0.f;
+        break;
+    default:
+        return 1.f;
+        break;
+    }
+}
+
+float Prisma::GetCoefficientTypeNature(PrismaTypes against)
+{
+    switch (against)
+    {
+    case PrismaTypes::FIRE:
+    case PrismaTypes::NATURE:
+    case PrismaTypes::POISON:
+    case PrismaTypes::AIR:
+    case PrismaTypes::METAL:
+        return 0.5f;
+        break;
+    case PrismaTypes::WATER:
+    case PrismaTypes::EARTH:
+        return 2.f;
+        break;
+    default:
+        return 1.f;
+        break;
+    }
+}
+
+float Prisma::GetCoefficientTypeIce(PrismaTypes against)
+{
+    switch (against)
+    {
+    case PrismaTypes::FIRE:
+    case PrismaTypes::WATER:
+    case PrismaTypes::ICE:
+    case PrismaTypes::METAL:
+        return 0.5f;
+        break;
+    case PrismaTypes::NATURE:
+    case PrismaTypes::EARTH:
+    case PrismaTypes::AIR:
+        return 2.f;
+        break;
+    default:
+        return 1.f;
+        break;
+    }
+}
+
+float Prisma::GetCoefficientTypeFighting(PrismaTypes against)
+{
+    switch (against)
+    {
+    case PrismaTypes::NORMAL:
+    case PrismaTypes::ICE:
+    case PrismaTypes::METAL:
+        return 2.f;
+        break;
+    case PrismaTypes::POISON:
+    case PrismaTypes::AIR:
+    case PrismaTypes::PSIONIC:
+        return 0.5f;
+        break;
+    case PrismaTypes::PHANTOM:
+        return 0.f;
+        break;
+    default:
+        return 1.f;
+        break;
+    }
+}
+
+float Prisma::GetCoefficientTypePoison(PrismaTypes against)
+{
+    switch (against)
+    {
+    case PrismaTypes::NATURE:
+    case PrismaTypes::LIGHT:
+        return 2.f;
+        break;
+    case PrismaTypes::POISON:
+    case PrismaTypes::EARTH:
+    case PrismaTypes::PHANTOM:
+    case PrismaTypes::DARK:
+        return 0.5f;
+        break;
+    case PrismaTypes::METAL:
+        return 0.f;
+        break;
+    default:
+        return 1.f;
+        break;
+    }
+}
+
+float Prisma::GetCoefficientTypeEarth(PrismaTypes against)
+{
+    switch (against)
+    {
+    case PrismaTypes::FIRE:
+    case PrismaTypes::LIGHTNING:
+    case PrismaTypes::POISON:
+    case PrismaTypes::METAL:
+        return 2.f;
+        break;
+    case PrismaTypes::NATURE:
+        return 0.5f;
+        break;
+    case PrismaTypes::AIR:
+        return 0.f;
+        break;
+    default:
+        return 1.f;
+        break;
+    }
+}
+
+float Prisma::GetCoefficientTypeAir(PrismaTypes against)
+{
+    switch (against)
+    {
+    case PrismaTypes::LIGHTNING:
+    case PrismaTypes::METAL:
+    case PrismaTypes::SOUND:
+        return 0.5f;
+        break;
+    case PrismaTypes::NATURE:
+    case PrismaTypes::FIGHTING:
+        return 2.f;
+        break;
+    default:
+        return 1.f;
+        break;
+    }
+}
+
+float Prisma::GetCoefficientTypePsionic(PrismaTypes against)
+{
+    switch (against)
+    {
+    case PrismaTypes::FIGHTING:
+    case PrismaTypes::POISON:
+        return 2.f;
+        break;
+    case PrismaTypes::PSIONIC:
+    case PrismaTypes::METAL:
+        return 0.5f;
+        break;
+    case PrismaTypes::DARK:
+    case PrismaTypes::LIGHT:
+        return 0.f;
+        break;
+    default:
+        return 1.f;
+        break;
+    }
+}
+
+float Prisma::GetCoefficientTypePhantom(PrismaTypes against)
+{
+    switch (against)
+    {
+    case PrismaTypes::NORMAL:
+        return 0.f;
+        break;
+    case PrismaTypes::PSIONIC:
+    case PrismaTypes::PHANTOM:
+        return 2.f;
+        break;
+    case PrismaTypes::DARK:
+    case PrismaTypes::LIGHT:
+        return 0.5f;
+        break;
+    default:
+        return 1.f;
+        break;
+    }
+}
+
+float Prisma::GetCoefficientTypeDark(PrismaTypes against)
+{
+    switch (against)
+    {
+    case PrismaTypes::FIGHTING:
+    case PrismaTypes::DARK:
+    case PrismaTypes::METAL:
+        return 0.5f;
+        break;
+    case PrismaTypes::PSIONIC:
+    case PrismaTypes::PHANTOM:
+    case PrismaTypes::LIGHT:
+        return 2.f;
+        break;
+    default:
+        return 1.f;
+        break;
+    }
+}
+
+float Prisma::GetCoefficientTypeMetal(PrismaTypes against)
+{
+    switch (against)
+    {
+    case PrismaTypes::FIRE:
+    case PrismaTypes::WATER:
+    case PrismaTypes::LIGHTNING:
+    case PrismaTypes::METAL:
+        return 0.5f;
+        break;
+    case PrismaTypes::ICE:
+    case PrismaTypes::DARK:
+    case PrismaTypes::LIGHT:
+        return 2.f;
+        break;
+    default:
+        return 1.f;
+        break;
+    }
+}
+
+float Prisma::GetCoefficientTypeLight(PrismaTypes against)
+{
+    switch (against)
+    {
+    case PrismaTypes::FIRE:
+    case PrismaTypes::POISON:
+    case PrismaTypes::METAL:
+    case PrismaTypes::LIGHT:
+        return 0.5f;
+        break;
+    case PrismaTypes::FIGHTING:
+    case PrismaTypes::DARK:
+        return 2.f;
+        break;
+    default:
+        return 1.f;
+        break;
+    }
+}
+
+float Prisma::GetCoefficientTypeSound(PrismaTypes against)
+{
+    switch (against)
+    {
+    case PrismaTypes::WATER:
+    case PrismaTypes::AIR:
+        return 2.f;
+        break;
+    case PrismaTypes::LIGHTNING:
+        return 0.5f;
+        break;
+    case PrismaTypes::SOUND:
+        return 0.f;
+        break;
+    default:
+        return 1.f;
+        break;
+    }
+}
+
+int Prisma::GetRequiredExperienceForNextLevel(int level, PrismaExperienceTypes type)
+{
+    int result = 0;
+
+    switch (type)
+    {
+    case PrismaExperienceTypes::SLOW:
+        result = (GetSlowExperience(level + 1) - GetSlowExperience(level));
+        break;
+    case PrismaExperienceTypes::MEDIUM_SLOW:
+        result = (GetMediumSlowExperience(level + 1) - GetMediumSlowExperience(level));
+        break;
+    default:
+    case PrismaExperienceTypes::MEDIUM_FAST:
+        result = (GetMediumFastExperience(level + 1) - GetMediumFastExperience(level));
+        break;
+    case PrismaExperienceTypes::FAST:
+        result = (GetFastExperience(level + 1) - GetFastExperience(level));
+        break;
+    };
+
+    if (result < 0)
+        return 0;
+
+    return result;
+}
+
+int Prisma::GetGainExperience(int level, int target_level, int target_base_experience, bool against_trainer, bool use_multi_exp, int number_prisma_during_combat, float other_multiplicator)
+{
+    int   A = (target_level * 2) + 10;
+    float B = (float(target_base_experience * target_level) / 5.f);
+    int   C = (level + target_level + 10);
+
+    against_trainer ? B *= 1.5f : NULL;
+    use_multi_exp ? B /= 2.f : NULL;
+    B /= ((number_prisma_during_combat <= 0) ? 1.f : float(number_prisma_during_combat));
+
+    int gain = floor((floor(sqrt(double(A)) * (A * A) * B) / floor(sqrt(C) * (C * C)))) + 1;
+
+    return floor(gain * other_multiplicator);
+}
+
+int Prisma::GetSlowExperience(int level)
+{
+    return int((5.f * float(level * level * level)) / 4.f);
+}
+
+int Prisma::GetMediumSlowExperience(int level)
+{
+    return int(((6.f / 5.f) * float(level * level * level)) - (15 * (level * level)) + (100 * level) - 140);
+}
+
+int Prisma::GetMediumFastExperience(int level)
+{
+    return (level * level * level);
+}
+
+int Prisma::GetFastExperience(int level)
+{
+    return int((4.f * float(level * level * level)) / 5.f);
 }

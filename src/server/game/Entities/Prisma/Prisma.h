@@ -14,7 +14,11 @@ public:
     void InitializePrisma();
     void InitializePrismaFromGuid(uint32 guid);
     uint32 GetPrismaEntry() { return (GetEntry() - PRISMA_TEMPLATE_RESERVED_MIN); }
+    uint16 CalculateStat(PrismaStats _stat);
 
+    void SavePrismaToDB();
+
+    static uint32 GenerateGUID();
     static Prisma* Invoke(Player* owner, uint32 id);
     static uint32 GetTeamID(Player* player, uint8 num = 0);
 
@@ -33,11 +37,24 @@ public:
     PrismaGenders const GetGender() { return _gender.GetGender(); };
     std::string const GetGenderName() { return _gender.GetGenderName(); };
 
+    static float GetAttackCoefficient(PrismaTypes attack, PrismaTypes target_type);
+    static float GetAttackCoefficient(PrismaTypes attack, PrismaTypes target_type1, PrismaTypes target_type2);
+
+    static int GetRequiredExperienceForNextLevel(int level, PrismaExperienceTypes Type);
+    static int GetGainExperience(int level, int target_level, int target_base_experience, bool against_trainer, bool use_multi_exp, int number_prisma_during_combat, float other_multiplicator);
+
 private:
+    uint32 m_guid;
+    uint32 m_id;
+    uint32 m_experience;
+    int32 m_item;
+
     PrismaIndividualValue _iv;
+    PrismaEffortValue _ev;
     PrismaNature _nature;
     PrismaGender _gender;
     PrismaCharacteristic _characteristic;
+    PrismaMoveSet _move;
 
     void GenerateIndividualValue();
     void GenerateCharacteristic();
@@ -47,4 +64,26 @@ private:
     bool _iv_generated;
     bool _nature_generated;
     bool _gender_generated;
+
+    static float GetCoefficientTypeNormal(PrismaTypes against);
+    static float GetCoefficientTypeFire(PrismaTypes against);
+    static float GetCoefficientTypeWater(PrismaTypes against);
+    static float GetCoefficientTypeLightning(PrismaTypes against);
+    static float GetCoefficientTypeNature(PrismaTypes against);
+    static float GetCoefficientTypeIce(PrismaTypes against);
+    static float GetCoefficientTypeFighting(PrismaTypes against);
+    static float GetCoefficientTypePoison(PrismaTypes against);
+    static float GetCoefficientTypeEarth(PrismaTypes against);
+    static float GetCoefficientTypeAir(PrismaTypes against);
+    static float GetCoefficientTypePsionic(PrismaTypes against);
+    static float GetCoefficientTypePhantom(PrismaTypes against);
+    static float GetCoefficientTypeDark(PrismaTypes against);
+    static float GetCoefficientTypeMetal(PrismaTypes against);
+    static float GetCoefficientTypeLight(PrismaTypes against);
+    static float GetCoefficientTypeSound(PrismaTypes against);
+
+    static int GetSlowExperience(int level);
+    static int GetMediumSlowExperience(int level);
+    static int GetMediumFastExperience(int level);
+    static int GetFastExperience(int level);
 };
