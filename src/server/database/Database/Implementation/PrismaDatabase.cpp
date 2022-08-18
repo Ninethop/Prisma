@@ -25,6 +25,9 @@ void PrismaDatabaseConnection::DoPrepareStatements()
 
     PrepareStatement(PRISMA_SEL_PLAYER_PRISMA, "SELECT Prisma_1, Prisma_2, Prisma_3, Prisma_4, Prisma_5, Prisma_6 FROM player_prisma WHERE Guid = ?", CONNECTION_SYNCH);
     PrepareStatement(PRISMA_SEL_PRISMA_ID_FROM_GUID, "SELECT ID FROM prisma WHERE Guid = ?", CONNECTION_SYNCH);
+    PrepareStatement(PRISMA_DEL_PRISMA, "DELETE FROM prisma WHERE Guid = ?", CONNECTION_ASYNC);
+    PrepareStatement(PRISMA_INS_PRISMA, "INSERT INTO prisma (Guid, ID , Level, Experience, Item, IV_Stamina, IV_Attack, IV_Defense, IV_SpecialAttack, IV_SpecialDefense, IV_Speed, EV_Stamina, EV_Attack, EV_Defense, EV_SpecialAttack, EV_SpecialDefense, EV_Speed, Move_0, PP_Move_0, Move_1, PP_Move_1, Move_2, PP_Move_2, Move_3, PP_Move_3) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", CONNECTION_ASYNC);
+    PrepareStatement(PRISMA_SEL_PRISMA_FROM_GUID, "SELECT (Guid, ID , Level, Experience, Item, IV_Stamina, IV_Attack, IV_Defense, IV_SpecialAttack, IV_SpecialDefense, IV_Speed, EV_Stamina, EV_Attack, EV_Defense, EV_SpecialAttack, EV_SpecialDefense, EV_Speed, Move_0, PP_Move_0, Move_1, PP_Move_1, Move_2, PP_Move_2, Move_3, PP_Move_3) FROM prisma WHERE Guid = ?", CONNECTION_SYNCH);
 }
 
 PrismaDatabaseConnection::PrismaDatabaseConnection(MySQLConnectionInfo& connInfo) : MySQLConnection(connInfo)
