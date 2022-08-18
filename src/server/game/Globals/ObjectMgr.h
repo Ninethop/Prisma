@@ -541,6 +541,8 @@ struct QuestGreetingLocale
 typedef std::map<ObjectGuid, ObjectGuid> LinkedRespawnContainer;
 typedef std::unordered_map<uint32, CreatureTemplate> CreatureTemplateContainer;
 typedef std::unordered_map<uint32, PrismaTemplate> PrismaTemplateContainer;
+typedef std::unordered_map<uint32, PrismaData> PrismaDataContainer;
+typedef std::unordered_map<uint32, PrismaMoveTemplate> PrismaMoveTemplateContainer;
 typedef std::unordered_map<uint32, CreatureAddon> CreatureTemplateAddonContainer;
 typedef std::unordered_map<ObjectGuid::LowType, CreatureData> CreatureDataContainer;
 typedef std::unordered_map<ObjectGuid::LowType, CreatureAddon> CreatureAddonContainer;
@@ -983,6 +985,12 @@ class TC_GAME_API ObjectMgr
         CreatureTemplateContainer const& GetCreatureTemplates() const { return _creatureTemplateStore; }
         PrismaTemplate const* GetPrismaTemplate(uint32 entry) const;
         PrismaTemplateContainer const& GetPrismaTemplates() const { return _prismaTemplateStore; }
+        PrismaData const* GetPrismaData(uint32 guid) const;
+        PrismaDataContainer const& GetPrismaDatas() const { return _prismaDataStore; }
+        PrismaData& NewOrExistPrismaData(uint32 guid) { return _prismaDataStore[guid]; }
+        static uint32 GeneratePrismaGuid();
+        PrismaMoveTemplate const* GetPrismaMoveTemplate(uint32 id) const;
+        PrismaMoveTemplateContainer const& GetPrismaMoveTemplates() const { return _prismaMoveTemplateStore; }
         CreatureModelInfo const* GetCreatureModelInfo(uint32 modelId) const;
         CreatureModelInfo const* GetCreatureModelRandomGender(uint32* displayID) const;
         static uint32 ChooseDisplayId(CreatureTemplate const* cinfo, CreatureData const* data = nullptr);
@@ -1158,11 +1166,15 @@ class TC_GAME_API ObjectMgr
         void LoadCreatureClassLevelStats();
         void LoadCreatureLocales();
         void LoadPrismaTemplates();
+        void LoadPrismaDatas();
+        void LoadPrismaMoveTemplates();
         void PopulateCreatureFromPrisma();
         void LoadCreatureTemplates();
         void LoadCreatureTemplateAddons();
         void LoadCreatureTemplate(Field* fields);
         void LoadPrismaTemplate(Field* fields);
+        void LoadPrismaData(Field* fields);
+        void LoadPrismaMoveTemplate(Field* fields);
         void LoadCreatureTemplateResistances();
         void LoadCreatureTemplateSpells();
         void CheckCreatureTemplate(CreatureTemplate const* cInfo);
@@ -1696,6 +1708,8 @@ class TC_GAME_API ObjectMgr
         CreatureDataContainer _creatureDataStore;
         CreatureTemplateContainer _creatureTemplateStore;
         PrismaTemplateContainer _prismaTemplateStore;
+        PrismaDataContainer _prismaDataStore;
+        PrismaMoveTemplateContainer _prismaMoveTemplateStore;
         CreatureModelContainer _creatureModelStore;
         CreatureAddonContainer _creatureAddonStore;
         CreatureTemplateAddonContainer _creatureTemplateAddonStore;

@@ -719,6 +719,208 @@ void ObjectMgr::LoadPrismaTemplate(Field* fields)
     prismaTemplate.EVSpeed          = fields[22].GetUInt32();
 }
 
+void ObjectMgr::LoadPrismaDatas()
+{
+    uint32 oldMSTime = getMSTime();
+
+    QueryResult result = PrismaDatabase.Query(
+        // 0
+        "SELECT Guid,"
+        // 1
+        "ID,"
+        // 2
+        "Level,"
+        // 3
+        "Experience,"
+        // 4
+        "Item,"
+        // 5
+        "IV_Stamina,"
+        // 6
+        "IV_Attack,"
+        // 7
+        "IV_Defense,"
+        // 8
+        "IV_SpecialAttack,"
+        // 9
+        "IV_SpecialDefense,"
+        // 10
+        "IV_Speed,"
+        // 11
+        "EV_Stamina,"
+        // 12
+        "EV_Attack,"
+        // 13
+        "EV_Defense,"
+        // 14
+        "EV_SpecialAttack,"
+        // 15
+        "EV_SpecialDefense,"
+        // 16
+        "EV_Speed,"
+        // 17
+        "Move_0,"
+        // 18
+        "PP_Move_0,"
+        // 19
+        "Move_1,"
+        // 20
+        "PP_Move_1,"
+        // 21
+        "Move_2,"
+        // 22
+        "PP_Move_2,"
+        // 23
+        "Move_3,"
+        // 24
+        "PP_Move_3"
+        " FROM prisma");
+
+    if (!result)
+    {
+        TC_LOG_INFO("server.loading", ">> Loaded 0 prisma data definitions. DB table `prisma` is empty.");
+        return;
+    }
+
+    _prismaDataStore.reserve(result->GetRowCount());
+    do
+    {
+        Field* fields = result->Fetch();
+        LoadPrismaData(fields);
+    } while (result->NextRow());
+
+    // Checking needs to be done after loading because of the difficulty self referencing
+    //for (auto const& ctPair : _prismaTemplateStore)
+        //CheckPrismaTemplate(&ctPair.second);
+
+    TC_LOG_INFO("server.loading", ">> Loaded " SZFMTD " prisma definitions in %u ms", _prismaDataStore.size(), GetMSTimeDiffToNow(oldMSTime));
+}
+
+void ObjectMgr::LoadPrismaData(Field* fields)
+{
+    uint32 guid = fields[0].GetUInt32();
+    PrismaData& prismaData = _prismaDataStore[guid];
+
+    prismaData.GUID = guid;
+    prismaData.ID = fields[1].GetUInt32();
+    prismaData.Level = fields[2].GetUInt32();
+    prismaData.Experience = fields[3].GetUInt32();
+    prismaData.Item = fields[4].GetInt32();
+    prismaData.IVStamina = fields[5].GetUInt32();
+    prismaData.IVAttack = fields[6].GetUInt32();
+    prismaData.IVDefense = fields[7].GetUInt32();
+    prismaData.IVSpecialAttack = fields[8].GetUInt32();
+    prismaData.IVSpecialDefense = fields[9].GetUInt32();
+    prismaData.IVSpeed = fields[10].GetUInt32();
+    prismaData.EVStamina = fields[11].GetUInt32();
+    prismaData.EVAttack = fields[12].GetUInt32();
+    prismaData.EVDefense = fields[13].GetUInt32();
+    prismaData.EVSpecialAttack = fields[14].GetUInt32();
+    prismaData.EVSpecialDefense = fields[15].GetUInt32();
+    prismaData.EVSpeed = fields[16].GetUInt32();
+    prismaData.Move0 = fields[17].GetInt32();
+    prismaData.PP_Move0 = fields[18].GetUInt32();
+    prismaData.Move1 = fields[19].GetInt32();
+    prismaData.PP_Move1 = fields[20].GetUInt32();
+    prismaData.Move2 = fields[21].GetInt32();
+    prismaData.PP_Move2 = fields[22].GetUInt32();
+    prismaData.Move3 = fields[23].GetInt32();
+    prismaData.PP_Move3 = fields[24].GetUInt32();
+}
+
+void ObjectMgr::LoadPrismaMoveTemplates()
+{
+    uint32 oldMSTime = getMSTime();
+
+    QueryResult result = PrismaDatabase.Query(
+        // 0
+        "SELECT ID,"
+        // 1
+        "SpellTrigger,"
+        // 2
+        "Name,"
+        // 3
+        "Type,"
+        // 4
+        "Category,"
+        // 5
+        "PowerPoints,"
+        // 6
+        "BasePower,"
+        // 7
+        "Accuracy,"
+        // 8
+        "CritRate,"
+        // 9
+        "SpeedPriority,"
+        // 10
+        "SelectionType"
+        " FROM prisma_move");
+
+    if (!result)
+    {
+        TC_LOG_INFO("server.loading", ">> Loaded 0 prisma move template definitions. DB table `prisma_move` is empty.");
+        return;
+    }
+
+    _prismaMoveTemplateStore.reserve(result->GetRowCount());
+    do
+    {
+        Field* fields = result->Fetch();
+        LoadPrismaMoveTemplate(fields);
+    } while (result->NextRow());
+
+    // Checking needs to be done after loading because of the difficulty self referencing
+    //for (auto const& ctPair : _prismaTemplateStore)
+        //CheckPrismaTemplate(&ctPair.second);
+
+    TC_LOG_INFO("server.loading", ">> Loaded " SZFMTD " prisma definitions in %u ms", _prismaMoveTemplateStore.size(), GetMSTimeDiffToNow(oldMSTime));
+}
+
+void ObjectMgr::LoadPrismaMoveTemplate(Field* fields)
+{
+    uint32 entry = fields[0].GetUInt32();
+    PrismaMoveTemplate& prismaMove = _prismaMoveTemplateStore[entry];
+
+    prismaMove.Entry = entry;
+    prismaMove.SpellTrigger = fields[1].GetUInt32();
+    prismaMove.Name = fields[2].GetString();
+
+    uint32 _type = fields[3].GetUInt32();
+    if (_type >= NUM_MAX_PRISMA_TYPE)
+        _type = 0;
+    prismaMove.Type = PrismaTypes(_type);
+
+    uint32 _category = fields[4].GetUInt32();
+    if (_category >= NUM_MAX_MOVE_CATEGORY)
+        _category = 0;
+    prismaMove.Category = PrismaMoveCategories(_category);
+
+    prismaMove.PowerPoints = fields[5].GetUInt32();
+    prismaMove.BasePower = fields[6].GetUInt32();
+    prismaMove.Accuracy = fields[7].GetUInt32();
+    prismaMove.CritRate = fields[8].GetFloat();
+    prismaMove.SpeedPriority = fields[9].GetBool();
+
+    uint32 _selection = fields[10].GetUInt32();
+    if (_selection >= NUM_MAX_MOVE_SELECTION_TYPE)
+        _selection = 0;
+    prismaMove.SelectionType = PrismaMoveSelectionTypes(_selection);
+}
+
+uint32 ObjectMgr::GeneratePrismaGuid()
+{
+    QueryResult result = PrismaDatabase.Query("SELECT MAX(Guid) FROM prisma");
+    if (!result)
+    {
+        TC_LOG_INFO("prisma", ">> Can't generated prisma guid");
+        return uint32(0);
+    }
+
+    Field* fields = result->Fetch();
+    return (fields[0].GetUInt32()) + 1;
+}
+
 void ObjectMgr::PopulateCreatureFromPrisma()
 {
     uint32 oldMSTime = getMSTime();
@@ -10365,6 +10567,16 @@ CreatureTemplate const* ObjectMgr::GetCreatureTemplate(uint32 entry) const
 PrismaTemplate const* ObjectMgr::GetPrismaTemplate(uint32 entry) const
 {
     return Trinity::Containers::MapGetValuePtr(_prismaTemplateStore, entry);
+}
+
+PrismaData const* ObjectMgr::GetPrismaData(uint32 guid) const
+{
+    return Trinity::Containers::MapGetValuePtr(_prismaDataStore, guid);
+}
+
+PrismaMoveTemplate const* ObjectMgr::GetPrismaMoveTemplate(uint32 id) const
+{
+    return Trinity::Containers::MapGetValuePtr(_prismaMoveTemplateStore, id);
 }
 
 QuestPOIWrapper const* ObjectMgr::GetQuestPOIWrapper(uint32 questId) const
