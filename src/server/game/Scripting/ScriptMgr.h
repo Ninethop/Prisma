@@ -636,6 +636,9 @@ class TC_GAME_API PlayerScript : public ScriptObject
 
     public:
 
+        // Called when a player send prisma data
+        virtual void OnReceivePrismaData(Player* /*player*/, std::string /*data*/) { };
+
         // Called when a player leave a combat
         virtual void OnLeaveCombat(Player* /*player*/) { };
 
@@ -1031,6 +1034,7 @@ class TC_GAME_API ScriptMgr
 
     public: /* PlayerScript */
 
+        void OnReceivePrismaData(Player* player, std::string data);
         void OnLeaveCombat(Player* player);
         void OnEnterCombat(Player* player, Unit* other);
         void OnPVPKill(Player* killer, Player* killed);

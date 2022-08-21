@@ -1940,6 +1940,11 @@ bool ScriptMgr::OnCriteriaCheck(uint32 scriptId, Player* source, Unit* target)
 }
 
 // Player
+void ScriptMgr::OnReceivePrismaData(Player* player, std::string data)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnReceivePrismaData(player, data);
+}
+
 void ScriptMgr::OnLeaveCombat(Player* player)
 {
     FOREACH_SCRIPT(PlayerScript)->OnLeaveCombat(player);
