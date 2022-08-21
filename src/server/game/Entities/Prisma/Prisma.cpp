@@ -214,7 +214,13 @@ uint32 Prisma::CalculateDamage(Prisma* attacker, Prisma* target, uint32 move_id,
         }
     }
 
-    // TODO: check if attacker is burn and move_template is categorie PHYSICAL
+    // BURN: reduce from an half if attacker is burn and move is physical
+    if (attacker->HasNonVolatileStatus(PrismaNonVolatileStatus::BURN) &&
+        move_template->Category == PrismaMoveCategories::PHYSICAL)
+    {
+        damage *= 0.5f;
+    }
+
 
     /* Here can be add extra feature to move specificity */
     {
@@ -310,6 +316,21 @@ void Prisma::SetPrismaLevel(uint32 level, bool update)
     m_level = level;
     if (update)
         SetLevel(m_level);
+}
+
+void Prisma::AddNonVolatileStatus(PrismaNonVolatileStatus _status)
+{
+    m_status_non_volatile_flags |= uint32(_status);
+}
+
+void Prisma::RemoveNonVolatileStatus(PrismaNonVolatileStatus _status)
+{
+    m_status_non_volatile_flags &= ~(uint32(_status));
+}
+
+bool Prisma::HasNonVolatileStatus(PrismaNonVolatileStatus _status)
+{
+    return (m_status_non_volatile_flags & uint32(_status)) != 0;
 }
 
 bool Prisma::HasPrisma(Player* player)

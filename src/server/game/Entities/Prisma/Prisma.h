@@ -20,6 +20,10 @@ public:
     void SavePrismaToDB();
     void SetPrismaLevel(uint32 level, bool update = false);
 
+    void AddNonVolatileStatus(PrismaNonVolatileStatus _status);
+    void RemoveNonVolatileStatus(PrismaNonVolatileStatus _status);
+    bool HasNonVolatileStatus(PrismaNonVolatileStatus _status);
+
     static bool HasPrisma(Player* player);
     static uint32 GenerateGUID();
     static Prisma* Invoke(Player* owner, uint8 num = 0);
