@@ -640,32 +640,34 @@ void ObjectMgr::LoadPrismaTemplates()
         // 8
         "EvolveID,"
         // 9
-        "Type,"
+        "Type1,"
         // 10
-        "BaseExperience,"
+        "Type2,"
         // 11
-        "Stamina,"
+        "BaseExperience,"
         // 12
-        "Attack,"
+        "Stamina,"
         // 13
-        "Defense,"
+        "Attack,"
         // 14
-        "SpecialAttack,"
+        "Defense,"
         // 15
-        "SpecialDefense,"
+        "SpecialAttack,"
         // 16
-        "Speed,"
+        "SpecialDefense,"
         // 17
-        "EVStamina,"
+        "Speed,"
         // 18
-        "EVAttack,"
+        "EVStamina,"
         // 19
-        "EVDefense,"
+        "EVAttack,"
         // 20
-        "EVSpecialAttack,"
+        "EVDefense,"
         // 21
-        "EVSpecialDefense,"
+        "EVSpecialAttack,"
         // 22
+        "EVSpecialDefense,"
+        // 23
         "EVSpeed"
         " FROM prisma_template");
 
@@ -681,10 +683,6 @@ void ObjectMgr::LoadPrismaTemplates()
         Field* fields = result->Fetch();
         LoadPrismaTemplate(fields);
     } while (result->NextRow());
-
-    // Checking needs to be done after loading because of the difficulty self referencing
-    //for (auto const& ctPair : _prismaTemplateStore)
-        //CheckPrismaTemplate(&ctPair.second);
 
     TC_LOG_INFO("server.loading", ">> Loaded " SZFMTD " prisma definitions in %u ms", _prismaTemplateStore.size(), GetMSTimeDiffToNow(oldMSTime));
 }
@@ -703,20 +701,21 @@ void ObjectMgr::LoadPrismaTemplate(Field* fields)
     prismaTemplate.Faction          = fields[6].GetUInt32();
     prismaTemplate.EvolveLevel      = fields[7].GetInt32();
     prismaTemplate.EvolveID         = fields[8].GetInt32();
-    prismaTemplate.Type             = fields[9].GetUInt32();
-    prismaTemplate.BaseExperience   = fields[10].GetUInt32();
-    prismaTemplate.Stamina          = fields[11].GetUInt32();
-    prismaTemplate.Attack           = fields[12].GetUInt32();
-    prismaTemplate.Defense          = fields[13].GetUInt32();
-    prismaTemplate.SpecialAttack    = fields[14].GetUInt32();
-    prismaTemplate.SpecialDefense   = fields[15].GetUInt32();
-    prismaTemplate.Speed            = fields[16].GetUInt32();
-    prismaTemplate.EVStamina        = fields[17].GetUInt32();
-    prismaTemplate.EVAttack         = fields[18].GetUInt32();
-    prismaTemplate.EVDefense        = fields[19].GetUInt32();
-    prismaTemplate.EVSpecialAttack  = fields[20].GetUInt32();
-    prismaTemplate.EVSpecialDefense = fields[21].GetUInt32();
-    prismaTemplate.EVSpeed          = fields[22].GetUInt32();
+    prismaTemplate.Type1            = fields[9].GetInt32();
+    prismaTemplate.Type2            = fields[10].GetInt32();
+    prismaTemplate.BaseExperience   = fields[11].GetUInt32();
+    prismaTemplate.Stamina          = fields[12].GetUInt32();
+    prismaTemplate.Attack           = fields[13].GetUInt32();
+    prismaTemplate.Defense          = fields[14].GetUInt32();
+    prismaTemplate.SpecialAttack    = fields[15].GetUInt32();
+    prismaTemplate.SpecialDefense   = fields[16].GetUInt32();
+    prismaTemplate.Speed            = fields[17].GetUInt32();
+    prismaTemplate.EVStamina        = fields[18].GetUInt32();
+    prismaTemplate.EVAttack         = fields[19].GetUInt32();
+    prismaTemplate.EVDefense        = fields[20].GetUInt32();
+    prismaTemplate.EVSpecialAttack  = fields[21].GetUInt32();
+    prismaTemplate.EVSpecialDefense = fields[22].GetUInt32();
+    prismaTemplate.EVSpeed          = fields[23].GetUInt32();
 }
 
 void ObjectMgr::LoadPrismaDatas()
@@ -739,44 +738,48 @@ void ObjectMgr::LoadPrismaDatas()
         // 6
         "Item,"
         // 7
-        "IV_Stamina,"
+        "CurrentStamina,"
         // 8
-        "IV_Attack,"
+        "StatusFlags,"
         // 9
-        "IV_Defense,"
+        "IV_Stamina,"
         // 10
-        "IV_SpecialAttack,"
+        "IV_Attack,"
         // 11
-        "IV_SpecialDefense,"
+        "IV_Defense,"
         // 12
-        "IV_Speed,"
+        "IV_SpecialAttack,"
         // 13
-        "EV_Stamina,"
+        "IV_SpecialDefense,"
         // 14
-        "EV_Attack,"
+        "IV_Speed,"
         // 15
-        "EV_Defense,"
+        "EV_Stamina,"
         // 16
-        "EV_SpecialAttack,"
+        "EV_Attack,"
         // 17
-        "EV_SpecialDefense,"
+        "EV_Defense,"
         // 18
-        "EV_Speed,"
+        "EV_SpecialAttack,"
         // 19
-        "Move_0,"
+        "EV_SpecialDefense,"
         // 20
-        "PP_Move_0,"
+        "EV_Speed,"
         // 21
-        "Move_1,"
+        "Move_0,"
         // 22
-        "PP_Move_1,"
+        "PP_Move_0,"
         // 23
-        "Move_2,"
+        "Move_1,"
         // 24
-        "PP_Move_2,"
+        "PP_Move_1,"
         // 25
-        "Move_3,"
+        "Move_2,"
         // 26
+        "PP_Move_2,"
+        // 27
+        "Move_3,"
+        // 28
         "PP_Move_3"
         " FROM prisma");
 
@@ -792,10 +795,6 @@ void ObjectMgr::LoadPrismaDatas()
         Field* fields = result->Fetch();
         LoadPrismaData(fields);
     } while (result->NextRow());
-
-    // Checking needs to be done after loading because of the difficulty self referencing
-    //for (auto const& ctPair : _prismaTemplateStore)
-        //CheckPrismaTemplate(&ctPair.second);
 
     TC_LOG_INFO("server.loading", ">> Loaded " SZFMTD " prisma definitions in %u ms", _prismaDataStore.size(), GetMSTimeDiffToNow(oldMSTime));
 }
@@ -823,6 +822,8 @@ void ObjectMgr::LoadPrismaData(Field* fields)
     prismaData.Level = fields[key++].GetUInt32();
     prismaData.Experience = fields[key++].GetUInt32();
     prismaData.Item = fields[key++].GetInt32();
+    prismaData.CurrentStamina = fields[key++].GetUInt32();
+    prismaData.StatusFlags = fields[key++].GetUInt32();
     prismaData.IVStamina = fields[key++].GetUInt32();
     prismaData.IVAttack = fields[key++].GetUInt32();
     prismaData.IVDefense = fields[key++].GetUInt32();
@@ -886,10 +887,6 @@ void ObjectMgr::LoadPrismaMoveTemplates()
         Field* fields = result->Fetch();
         LoadPrismaMoveTemplate(fields);
     } while (result->NextRow());
-
-    // Checking needs to be done after loading because of the difficulty self referencing
-    //for (auto const& ctPair : _prismaTemplateStore)
-        //CheckPrismaTemplate(&ctPair.second);
 
     TC_LOG_INFO("server.loading", ">> Loaded " SZFMTD " prisma definitions in %u ms", _prismaMoveTemplateStore.size(), GetMSTimeDiffToNow(oldMSTime));
 }
