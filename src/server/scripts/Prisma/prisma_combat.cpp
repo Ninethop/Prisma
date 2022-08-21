@@ -14,8 +14,15 @@ public:
         : PlayerScript("PrismaCombat")
     { }
 
+    void OnReceivePrismaData(Player* player, std::string data) override
+    {
+        //TC_LOG_INFO("prisma", "Receive data from (%s), data (%s)", player->GetName(), data);
+    }
+
     void OnPrismaKill(Player* player, Prisma* prisma) override
     {
+        player->SendPrismaData("PRISMA", "HidePrisma");
+
         int xp_gain = Prisma::GetGainExperience(player->GetLevel(), prisma->GetLevel(), 64, true, false, 1, 1.f);
         int xp_to_levelup = Prisma::GetRequiredExperienceForNextLevel(player->GetLevel(), PrismaExperienceTypes::MEDIUM_FAST);
 
@@ -29,16 +36,20 @@ public:
         if (target->IsPrisma())
         {
             Prisma* prisma = target->ToPrisma();
-            prisma->SetLevel(irand(5,20));
+            if (!prisma)
+                return;
+
+            prisma->SetPrismaLevel(irand(5,20), true);
             prisma->InitializePrisma();
 
-            TC_LOG_INFO("prisma", "%s, against %s (%u)!", player->GetName(), target->GetName(), target->GetLevel());
+            TC_LOG_INFO("prisma", "%s, against %s (%u)!", player->GetName(), prisma->GetName(), prisma->GetPrismaLevel());
+            player->SendPrismaData("PRISMA", "ShowPrisma");
 
             InitializeWildCombat(player, prisma);
 
+            PrismaStatistique _cstat = prisma->GetCalculatedStat();
             TC_LOG_INFO("prisma", "%s stat = stamina:%u - attack:%u - defense:%u - special_attack:%u - special_defense:%u - speed:%u", prisma->GetName(),
-                prisma->CalculateStat(PrismaStats::STAMINA), prisma->CalculateStat(PrismaStats::ATTACK), prisma->CalculateStat(PrismaStats::DEFENSE),
-                prisma->CalculateStat(PrismaStats::SPECIAL_ATTACK), prisma->CalculateStat(PrismaStats::SPECIAL_DEFENSE), prisma->CalculateStat(PrismaStats::SPEED));
+                _cstat.stamina, _cstat.attack, _cstat.defense, _cstat.special_attack, _cstat.special_defense, _cstat.speed);
             TC_LOG_INFO("prisma", "%s Individual Values = stamina:%u - attack:%u - defense:%u - special_attack:%u - special_defense:%u - speed:%u", prisma->GetName(),
                 prisma->GetStatIV(PrismaStats::STAMINA), prisma->GetStatIV(PrismaStats::ATTACK), prisma->GetStatIV(PrismaStats::DEFENSE),
                 prisma->GetStatIV(PrismaStats::SPECIAL_ATTACK), prisma->GetStatIV(PrismaStats::SPECIAL_DEFENSE), prisma->GetStatIV(PrismaStats::SPEED));
@@ -54,7 +65,7 @@ public:
         RemovePrisma(player->GetGUID());
         ClearPlayerFlagCombat(player);
 
-        TC_LOG_INFO("prisma", "%s leave the combat!", player->GetName());
+TC_LOG_INFO("prisma", "%s leave the combat!", player->GetName());
     }
 
 private:
@@ -109,6 +120,73 @@ private:
         {
             TC_LOG_INFO("prisma", "%s's prima can't be spawn", player->GetName());
             return;
+        }
+
+        /* Show prisma information for player
+        *   FUNC|FRIEND|ENEMY
+        *   {data} : level , hp , total_hp , name
+        */
+        {
+            std::string data = "";
+
+            //FUNCTION
+            data += "Wild|";
+
+            //FRIEND
+            data += std::to_string(_prismaStorage[player_guid]->GetPrismaLevel()) + ",";
+            data += std::to_string(_prismaStorage[player_guid]->GetCurrentStamina()) + ",";
+            data += std::to_string(_prismaStorage[player_guid]->GetCalculatedStat().stamina) + ",";
+            data += _prismaStorage[player_guid]->GetName();
+
+            //SEPARATOR
+            data += "|";
+
+            //ENEMY
+            uint32 target_hp = target->GetCalculatedStat().stamina;
+            data += std::to_string(target->GetPrismaLevel()) + ",";
+            data += std::to_string(target_hp) + ",";    // on wild, target have maximum hp at initialisation
+            data += std::to_string(target_hp) + ",";
+            data += target->GetName();
+
+            player->SendPrismaData("PRISMA", data);
+        }
+
+        /* Send move set information for player
+        *   FUNC|MOVE0|MOVE1|MOVE2|MOVE3
+        *   MOVE = id , name , total_pp, pp
+        */
+        {
+            PrismaMoveSet _moveSet = _prismaStorage[player_guid]->GetPrismaMoveSet();
+            const PrismaMoveTemplate* _moves[4];
+
+            std::string data = "";
+
+            //FUNCTION
+            data += "MoveSet|";
+
+            //MOVE0 -> 4
+            for (int i = 0; i < 4; ++i)
+            {
+                int32* id = _moveSet.GetMovesID();
+                uint32* pp = _moveSet.GetMovesPP();
+
+                if (*(id + i) > 0)
+                {
+                    _moves[i] = sObjectMgr->GetPrismaMoveTemplate(*(id + i));
+
+                    data += std::to_string(i) + ",";
+                    data += _moves[i]->Name + ",";
+                    data += std::to_string(_moves[i]->PowerPoints) + ",";
+                    data += std::to_string(*(pp + i));
+                }
+
+                if (*(id + i) == -1)
+                    data += "-1,,0,0";
+
+                data += "|";
+            }
+
+            player->SendPrismaData("PRISMA", data);
         }
 
         MoveUnitToCombat(player, player_pos, camp.target);
