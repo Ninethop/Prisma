@@ -1979,6 +1979,22 @@ void Player::SetObjectScale(float scale)
     SetCombatReach(scale * DEFAULT_PLAYER_COMBAT_REACH);
 }
 
+void Player::SendPrismaData(std::string prefix, std::string data)
+{
+    ObjectGuid guid = GetGUID();
+    std::string msg = prefix + "\t" + data + "|";
+    WorldPacket packet(SMSG_MESSAGECHAT, 100);
+    packet << uint8(CHAT_MSG_WHISPER);
+    packet << int32(LANG_ADDON);
+    packet << guid;
+    packet << uint32(0);
+    packet << guid;
+    packet << uint32(msg.length() + 1);
+    packet << msg;
+    packet << uint8(0);
+    GetSession()->SendPacket(&packet);
+}
+
 bool Player::IsImmunedToSpellEffect(SpellInfo const* spellInfo, SpellEffectInfo const& spellEffectInfo, WorldObject const* caster) const
 {
     // players are immune to taunt (the aura and the spell effect)
