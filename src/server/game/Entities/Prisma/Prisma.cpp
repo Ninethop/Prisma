@@ -3,20 +3,36 @@
 
 Prisma::Prisma(bool isWorldObject)
     : Creature(isWorldObject), _iv_generated(false), _nature_generated(false), _gender_generated(false),
-    m_guid(0), m_id(0), m_experience(0), m_item(-1), m_level(1)
+    m_guid(0), m_id(0), m_experience(0), m_item(-1), m_level(1), m_current_stamina(0),
+    m_status_volatile_flags(0), m_status_non_volatile_flags(0), m_status_volatile_combat_flags(0)
 { }
 
 void Prisma::InitializePrisma()
 {
+    m_id = GetEntry() - PRISMA_TEMPLATE_RESERVED_MIN;
+
     // this also generate characteristic
     if (!IndividualValueIsGenerated())
         GenerateIndividualValue();
+
+    // initialize EV value to 0 for all
+    {
+        _ev.Init();
+    }
 
     if (!NatureIsGenerated())
         GenerateNature();
 
     if (!GenderIsGenerated())
         GenerateGender();
+
+    // move set is for now totally empty
+    {
+        _move.Init();
+    }
+
+    GenerateCalculatedStat();
+    m_current_stamina = _calculatedStat.stamina;
 }
 
 bool Prisma::InitializePrismaFromGuid(uint32 guid)
@@ -31,6 +47,8 @@ bool Prisma::InitializePrismaFromGuid(uint32 guid)
         m_level = data->Level;
         m_experience = data->Experience;
         m_item = data->Item;
+        m_current_stamina = data->CurrentStamina;
+        m_status_non_volatile_flags = data->StatusFlags;
         // individual value
         _iv.stamina = data->IVStamina;
         _iv.attack = data->IVAttack;
@@ -59,6 +77,7 @@ bool Prisma::InitializePrismaFromGuid(uint32 guid)
         _iv_generated = true;
         _nature_generated = true;
         _gender_generated = true;
+        GenerateCalculatedStat();
         return true;
     }
 
@@ -76,8 +95,8 @@ uint16 Prisma::CalculateStat(PrismaStats _stat)
 
     if (_stat == PrismaStats::STAMINA)
     {
-        uint16 numerator = ((2 * _template->Stamina) + _iv.stamina + (_ev.stamina / 4)) * GetLevel();
-        uint16 result = (numerator / 100) + (GetLevel() + 10);
+        uint16 numerator = ((2 * _template->Stamina) + _iv.stamina + (_ev.stamina / 4)) * m_level;
+        uint16 result = (numerator / 100) + (m_level + 10);
 
         (result < MIN_STAMINA_VALUE) ? result = MIN_STAMINA_VALUE : NULL;
         return result;
@@ -117,11 +136,92 @@ uint16 Prisma::CalculateStat(PrismaStats _stat)
         ev_value = _ev.speed;
     }
 
-    uint16 numerator = (2 * base_value + iv_value + (ev_value / 4)) * GetLevel();
+    uint16 numerator = (2 * base_value + iv_value + (ev_value / 4)) * m_level;
     uint16 result = ((numerator / 100) + 5) * nature_factor;
 
     (result < MIN_STAT_VALUE) ? result = MIN_STAT_VALUE : NULL;
     return result;
+}
+
+uint32 Prisma::CalculateDamage(Prisma* attacker, Prisma* target, uint32 move_id, bool is_second_strike)
+{
+    if (!attacker || !target || move_id == 0)
+        return 0;
+
+    const PrismaMoveTemplate* move_template = sObjectMgr->GetPrismaMoveTemplate(move_id);
+    if (!move_template)
+        return 0;
+
+    // START BASE
+    uint32 damage = (2 * target->GetPrismaLevel() / 5) + 2;
+    damage *= move_template->BasePower;
+
+    uint16 AttackStat;
+    uint16 DefenseStat;
+    if (move_template->Category == PrismaMoveCategories::PHYSICAL)
+    {
+        AttackStat = attacker->GetCalculatedStat().attack;
+        DefenseStat = target->GetCalculatedStat().defense;
+    }
+    else
+    {
+        AttackStat = attacker->GetCalculatedStat().special_attack;
+        DefenseStat = target->GetCalculatedStat().special_defense;
+    }
+
+    damage *= (AttackStat / DefenseStat);
+    damage /= 50;
+    damage += 2;
+    // END BASE
+
+    // SINGLE OR MULTI TARGET
+    damage *= (move_template->SelectionType == PrismaMoveSelectionTypes::TARGET) ? 1.f : 0.75f;
+
+    // SECOND STRIKE
+    damage *= (is_second_strike) ? 0.25f : 1.f;
+
+    // TODO: calculate weather
+
+    // TODO: add check is target can avoid the crit damage
+    damage *= (frand(0.f, 100.f) < move_template->CritRate) ? 1.5f : 1.f;
+
+    // RANDOM DECREASE
+    damage *= frand(0.85f, 1.f);
+
+    // STAB
+    const PrismaTemplate* attacker_template = sObjectMgr->GetPrismaTemplate(attacker->GetPrismaEntry());
+    if (attacker_template)
+    {
+        if ((move_template->Type == PrismaTypes(attacker_template->Type1) ||
+            move_template->Type == PrismaTypes(attacker_template->Type2)) &&
+            move_template->Type != PrismaTypes::TYPELESS)
+        {
+            damage *= 1.5f;
+        }
+    }
+
+    // TYPE
+    const PrismaTemplate* target_template = sObjectMgr->GetPrismaTemplate(target->GetPrismaEntry());
+    if (target_template)
+    {
+        if (target_template->Type1 >= int32(PrismaTypes::TYPELESS) &&
+            target_template->Type1 < NUM_MAX_PRISMA_TYPE &&
+            target_template->Type2 >= int32(PrismaTypes::TYPELESS) &&
+            target_template->Type2 < NUM_MAX_PRISMA_TYPE)
+        {
+            damage *= GetMoveCoefficient(move_template->Type,
+                PrismaTypes(target_template->Type1), PrismaTypes(target_template->Type2));
+        }
+    }
+
+    // TODO: check if attacker is burn and move_template is categorie PHYSICAL
+
+    /* Here can be add extra feature to move specificity */
+    {
+
+    }
+
+    return damage;
 }
 
 /*
@@ -141,6 +241,8 @@ void Prisma::SavePrismaToDB()
     data.Level = m_level;
     data.Experience = m_experience;
     data.Item = m_item;
+    data.CurrentStamina = m_current_stamina;
+    data.StatusFlags = m_status_non_volatile_flags;
     data.IVStamina = _iv.stamina;
     data.IVAttack = _iv.attack;
     data.IVDefense = _iv.defense;
@@ -176,6 +278,8 @@ void Prisma::SavePrismaToDB()
     stmt->setUInt32(index++, data.Level);
     stmt->setUInt32(index++, data.Experience);
     stmt->setInt32(index++, data.Item);
+    stmt->setUInt32(index++, data.CurrentStamina);
+    stmt->setUInt32(index++, data.StatusFlags);
     stmt->setUInt32(index++, data.IVStamina);
     stmt->setUInt32(index++, data.IVAttack);
     stmt->setUInt32(index++, data.IVDefense);
@@ -199,6 +303,13 @@ void Prisma::SavePrismaToDB()
     trans->Append(stmt);
 
     PrismaDatabase.CommitTransaction(trans);
+}
+
+void Prisma::SetPrismaLevel(uint32 level, bool update)
+{
+    m_level = level;
+    if (update)
+        SetLevel(m_level);
 }
 
 bool Prisma::HasPrisma(Player* player)
@@ -244,13 +355,19 @@ Prisma* Prisma::Invoke(Player* owner, uint8 num)
     delete prisma;
 
     prisma = new Prisma();
-    prisma->InitializePrismaFromGuid(guid);
-    if (!prisma->LoadFromDB(db_guid, map, true, true))
+    if (!prisma->InitializePrismaFromGuid(guid))
     {
+        // guid doesn't exist
         delete prisma;
         return nullptr;
     }
 
+    if (!prisma->LoadFromDB(db_guid, map, true, true)) 
+    {
+        // can't found prisma in `creature` db
+        delete prisma;
+        return nullptr;
+    }
     sObjectMgr->AddCreatureToGrid(db_guid, sObjectMgr->GetCreatureData(db_guid));
     return prisma;
 }
@@ -301,12 +418,53 @@ uint32 Prisma::GetTeamGUID(Player* player, uint8 num)
 
 void Prisma::GenerateIndividualValue()
 {
-    _iv.stamina         = irand(IV_MIN_VALUE, IV_MAX_VALUE);
-    _iv.attack          = irand(IV_MIN_VALUE, IV_MAX_VALUE);
-    _iv.defense         = irand(IV_MIN_VALUE, IV_MAX_VALUE);
-    _iv.special_attack  = irand(IV_MIN_VALUE, IV_MAX_VALUE);
-    _iv.special_defense = irand(IV_MIN_VALUE, IV_MAX_VALUE);
-    _iv.speed           = irand(IV_MIN_VALUE, IV_MAX_VALUE);
+    // STAMINA
+    while (true)
+    {
+        _iv.stamina = irand(IV_MIN_VALUE, IV_MAX_VALUE);
+        if (_iv.stamina >= 0 && _iv.stamina <= 31)
+            break;
+    }
+
+    // ATTACK
+    while (true)
+    {
+        _iv.attack = irand(IV_MIN_VALUE, IV_MAX_VALUE);
+        if (_iv.attack >= 0 && _iv.attack <= 31)
+            break;
+    }
+
+    // DEFENSE
+    while (true)
+    {
+        _iv.defense = irand(IV_MIN_VALUE, IV_MAX_VALUE);
+        if (_iv.defense >= 0 && _iv.defense <= 31)
+            break;
+    }
+
+    // SPECIAL ATTACK
+    while (true)
+    {
+        _iv.special_attack = irand(IV_MIN_VALUE, IV_MAX_VALUE);
+        if (_iv.special_attack >= 0 && _iv.special_attack <= 31)
+            break;
+    }
+
+    // SPECIAL DEFENSE
+    while (true)
+    {
+        _iv.special_defense = irand(IV_MIN_VALUE, IV_MAX_VALUE);
+        if (_iv.special_defense >= 0 && _iv.special_defense <= 31)
+            break;
+    }
+
+    // SPEED
+    while (true)
+    {
+        _iv.speed = irand(IV_MIN_VALUE, IV_MAX_VALUE);
+        if (_iv.speed >= 0 && _iv.speed <= 31)
+            break;
+    }
 
     GenerateCharacteristic();
     _iv_generated = true;
@@ -350,11 +508,26 @@ void Prisma::GenerateGender()
     _gender_generated = true;
 }
 
-float Prisma::GetAttackCoefficient(PrismaTypes attack, PrismaTypes target_type)
+void Prisma::GenerateCalculatedStat()
 {
-    switch (attack)
+    _calculatedStat.stamina            = CalculateStat(PrismaStats::STAMINA);
+    _calculatedStat.attack             = CalculateStat(PrismaStats::ATTACK);
+    _calculatedStat.defense            = CalculateStat(PrismaStats::DEFENSE);
+    _calculatedStat.special_attack     = CalculateStat(PrismaStats::SPECIAL_ATTACK);
+    _calculatedStat.special_defense    = CalculateStat(PrismaStats::SPECIAL_DEFENSE);
+    _calculatedStat.speed              = CalculateStat(PrismaStats::SPEED);
+
+    _currentStat = _calculatedStat;
+}
+
+float Prisma::GetMoveCoefficient(PrismaTypes move, PrismaTypes target_type)
+{
+    switch (move)
     {
     default:
+    case PrismaTypes::TYPELESS:
+        return 1.f;
+        break;
     case PrismaTypes::NORMAL:
         return GetCoefficientTypeNormal(target_type);
         break;
@@ -406,9 +579,9 @@ float Prisma::GetAttackCoefficient(PrismaTypes attack, PrismaTypes target_type)
     }
 }
 
-float Prisma::GetAttackCoefficient(PrismaTypes attack, PrismaTypes target_type1, PrismaTypes target_type2)
+float Prisma::GetMoveCoefficient(PrismaTypes move, PrismaTypes tMove1, PrismaTypes tMove2)
 {
-    return (GetAttackCoefficient(attack, target_type1) * GetAttackCoefficient(attack, target_type2));
+    return (GetMoveCoefficient(move, tMove1) * GetMoveCoefficient(move, tMove2));
 }
 
 float Prisma::GetCoefficientTypeNormal(PrismaTypes against)
