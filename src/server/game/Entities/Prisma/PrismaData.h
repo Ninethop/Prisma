@@ -56,41 +56,41 @@ enum class PrismaCombatCamps
 
 enum class PrismaMoveCategories
 {
-    PHYSICAL,
-    SPECIAL,
-    OTHER
+    PHYSICAL,           // 0
+    SPECIAL,            // 1
+    OTHER               // 2
 };
 
 #define NUM_MAX_MOVE_CATEGORY                   3
 
 enum class PrismaMoveSelectionTypes
 {
-    TARGET,
-    ENEMY,
-    ALL
+    TARGET,             // 0
+    ENEMY,              // 1
+    ALL                 // 2
 };
 
 #define NUM_MAX_MOVE_SELECTION_TYPE             3
 
 enum class PrismaTypes
 {
-    TYPELESS = -1,
-    NORMAL,
-    FIRE,
-    WATER,
-    LIGHTNING,
-    NATURE,
-    ICE,
-    FIGHTING,
-    POISON,
-    EARTH,
-    AIR,
-    PSIONIC,
-    PHANTOM,
-    DARK,
-    METAL,
-    LIGHT,
-    SOUND
+    TYPELESS = -1,      // -1
+    NORMAL,             // 0
+    FIRE,               // 1
+    WATER,              // 2
+    LIGHTNING,          // 3
+    NATURE,             // 4
+    ICE,                // 5
+    FIGHTING,           // 6
+    POISON,             // 7
+    EARTH,              // 8
+    AIR,                // 9
+    PSIONIC,            // 10
+    PHANTOM,            // 11
+    DARK,               // 12
+    METAL,              // 13
+    LIGHT,              // 14
+    SOUND               // 16
 };
 
 #define NUM_MAX_PRISMA_TYPE                     16
@@ -98,10 +98,10 @@ enum class PrismaTypes
 enum class PrismaStats
 {
     STAMINA,
-    ATTACK,
+    ATTACK,     
     DEFENSE,
     SPECIAL_ATTACK,
-    SPECIAL_DEFENSE,
+    SPECIAL_DEFENSE,    
     SPEED
 };
 
@@ -141,9 +141,9 @@ enum class PrismaNatures
 
 enum class PrismaGenders
 {
-    MALE,
-    FEMALE,
-    NO_GENDER,
+    MALE,       // 0
+    FEMALE,     // 1
+    NO_GENDER,  // 2
 };
 
 #define NUM_MAX_PRISMA_GENDER                   3
