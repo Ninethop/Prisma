@@ -10,7 +10,7 @@
 #define CONFRONTATION_RANGE                 4.f
 #define COMBAT_RANGE_FROM_PIVOT             10.f
 #define COMBAT_RANGE_MASTER_FROM_PIVOT      12.5f
-#define RAND_OFFSET_WILD_MASTER             M_PI_4
+#define RAND_OFFSET_WILD_MASTER             (M_PI_4 / 4.0)
 #define MAX_ITERATION_ON_ENTER_COMBAT       25
 
 #define PRISMA_TEMPLATE_RESERVED_MIN        45000
@@ -213,6 +213,20 @@ enum class PrismaVolatileCombatStatus
 };
 
 #define NUM_MAX_VOLATILE_COMBAT_STATUS          20
+
+enum class PrismaWeathers
+{
+    CLEAR,
+    HARSH_SUNLIGHT,
+    RAIN,
+    SANDSTORM,
+    HAIL,
+    SHADOWY_AURA,
+    FOG,
+    STRONG_WINDS
+};
+
+#define NUM_MAX_PRISMA_WEATHER                  8
 
 struct TC_GAME_API PrismaTemplate
 {
