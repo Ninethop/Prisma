@@ -224,6 +224,28 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recvData)
     if (msg.size() > 255)
         return;
 
+    // Prisma data is send here
+    if ((lang == LANG_ADDON) && (type == CHAT_MSG_WHISPER))
+    {
+        std::string id = "";
+        std::string data = "";
+
+        auto delimeter_position = msg.find('\t');
+        if (delimeter_position == std::string::npos)
+        {
+            id = msg;
+        }
+        else
+        {
+            id = msg.substr(0, delimeter_position);
+            data = msg.substr(delimeter_position + 1, std::string::npos);
+        }
+
+        std::transform(id.begin(), id.end(), id.begin(), ::toupper);
+        if (id == "PRISMA" && data.size() > 0)
+            sScriptMgr->OnReceivePrismaData(sender, data);
+    }
+
     // Our Warden module also uses SendAddonMessage as a way to communicate Lua check results to the server, see if this is that
     if ((type == CHAT_MSG_GUILD) && (lang == LANG_ADDON))
     {
