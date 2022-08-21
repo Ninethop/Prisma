@@ -36,7 +36,7 @@ enum class PrismaExperienceTypes
     FAST
 };
 
-#define NUM_MAX_EXPERIENCE_TYPE         4
+#define NUM_MAX_EXPERIENCE_TYPE                 4
 
 enum class PrismaCombatUnits
 {
@@ -44,7 +44,7 @@ enum class PrismaCombatUnits
     PRISMA
 };
 
-#define NUM_MAX_COMBAT_UNIT             2
+#define NUM_MAX_COMBAT_UNIT                     2
 
 enum class PrismaCombatCamps
 {
@@ -52,7 +52,7 @@ enum class PrismaCombatCamps
     ENNEMY
 };
 
-#define NUM_MAX_COMBAT_CAMP             2
+#define NUM_MAX_COMBAT_CAMP                     2
 
 enum class PrismaMoveCategories
 {
@@ -61,7 +61,7 @@ enum class PrismaMoveCategories
     OTHER
 };
 
-#define NUM_MAX_MOVE_CATEGORY           3
+#define NUM_MAX_MOVE_CATEGORY                   3
 
 enum class PrismaMoveSelectionTypes
 {
@@ -70,10 +70,11 @@ enum class PrismaMoveSelectionTypes
     ALL
 };
 
-#define NUM_MAX_MOVE_SELECTION_TYPE     3
+#define NUM_MAX_MOVE_SELECTION_TYPE             3
 
 enum class PrismaTypes
 {
+    TYPELESS = -1,
     NORMAL,
     FIRE,
     WATER,
@@ -92,7 +93,7 @@ enum class PrismaTypes
     SOUND
 };
 
-#define NUM_MAX_PRISMA_TYPE             16
+#define NUM_MAX_PRISMA_TYPE                     16
 
 enum class PrismaStats
 {
@@ -104,7 +105,7 @@ enum class PrismaStats
     SPEED
 };
 
-#define NUM_MAX_PRISMA_STAT             6
+#define NUM_MAX_PRISMA_STAT                     6
 
 enum class PrismaNatures
 {
@@ -136,7 +137,7 @@ enum class PrismaNatures
     QUIRKY
 };
 
-#define NUM_MAX_PRISMA_NATURE           25
+#define NUM_MAX_PRISMA_NATURE                   25
 
 enum class PrismaGenders
 {
@@ -145,7 +146,73 @@ enum class PrismaGenders
     NO_GENDER,
 };
 
-#define NUM_MAX_PRISMA_GENDER           3
+#define NUM_MAX_PRISMA_GENDER                   3
+
+enum class PrismaNonVolatileStatus
+{
+    BURN,               //  0x1         damage 1/16 each turn
+    FREEZE,             //  0x2         20% of thawed each turn, can't use move
+    PARALYSIS,          //  0x4         speed * 0.5, 25% chance of being unable to use a move
+    POISON,             //  0x8         damage 1/16 each turn
+    BADLY_POISONED,     // 0x10         damage 1/16 + 1/16 each turn, is PrismaNonVolatileStatus::POISON at end of combat
+    SLEEP,              // 0x20         1 to 3 turn
+};
+
+#define NUM_MAX_PRISMA_NON_VOLATILE_STATUS      6
+
+enum class PrismaVolatileStatus
+{
+    BOUND,              //      0x1
+    CAN_NOT_ESCAPE,     //      0x2
+    CONFUSION,          //      0x4
+    CURSE,              //      0x8
+    DROWSY,             //     0x10
+    EMBARGO,            //     0x20
+    ENCORE,             //     0x40
+    FLINCH,             //     0x80
+    HEAL_BLOCK,         //    0x100
+    IDENTIFIED,         //    0x200
+    INFATUATION,        //    0x400
+    LEECH_SEED,         //    0x800
+    NIGHTMARE,          //   0x1000
+    PERISH_SONG,        //   0x2000
+    TAUNT,              //   0x4000
+    TELEKINESIS,        //   0x8000
+    TORMENT,            //  0x10000
+    SPLINTERS,          //  0x20000
+    POWER_BOOST,        //  0x40000
+    POWER_DROP,         //  0x80000
+    GUARD_BOSST,        // 0x100000
+    GUARD_DROP          // 0x200000
+};
+
+#define NUM_MAX_VOLATILE_STATUS                 22
+
+enum class PrismaVolatileCombatStatus
+{
+    AQUA_RING,                  //    0x1
+    BRACING,                    //    0x2
+    CHARGING_TURN,              //    0x4
+    CENTER_OF_ATTENTION,        //    0x8
+    DEFENSE_CURL,               //   0x10
+    ROOTING,                    //   0x20
+    MAGIC_COAT,                 //   0x40
+    MAGNETIC_LEVITATION,        //   0x80
+    MIMIC,                      //  0x100
+    MINIMIZE,                   //  0x200
+    PROTECTING,                 //  0x400
+    RECHARGING,                 //  0x800
+    SEMI_INVULNERABLE_TURN,     // 0x1000
+    SUBSTITUTE,                 // 0x2000
+    TAKING_AIM,                 // 0x4000
+    THRASHING,                  // 0x8000
+    TRANSFORMED,                //0x10000
+    FIXATED,                    //0x20000
+    PRIMED,                     //0x40000
+    OBSCURED                    //0x80000
+};
+
+#define NUM_MAX_VOLATILE_COMBAT_STATUS          20
 
 struct TC_GAME_API PrismaTemplate
 {
@@ -158,7 +225,8 @@ struct TC_GAME_API PrismaTemplate
     uint32 Faction;
     uint32 EvolveLevel;
     uint32 EvolveID;
-    uint32 Type;
+    int32 Type1;
+    int32 Type2;
     uint32 BaseExperience;
     uint32 Stamina;
     uint32 Attack;
@@ -183,6 +251,8 @@ struct TC_GAME_API PrismaData
     uint32 Level;
     uint32 Experience;
     int32 Item;
+    uint32 CurrentStamina;
+    uint32 StatusFlags; // only non volatile is stored
     uint32 IVStamina;
     uint32 IVAttack;
     uint32 IVDefense;
@@ -310,6 +380,18 @@ struct TC_GAME_API PrismaEffortValue
         case PrismaStats::SPECIAL_DEFENSE: special_defense = Add(special_defense, value); break;
         case PrismaStats::SPEED: speed = Add(speed, value); break;
         }
+
+        return true;
+    }
+
+    void Init()
+    {
+        stamina = 0;
+        attack = 0;
+        defense = 0;
+        special_attack = 0;
+        special_defense = 0;
+        speed = 0;
     }
 };
 
@@ -323,6 +405,42 @@ struct TC_GAME_API PrismaMoveSet
     uint32 pp_move2;
     int32 move3;
     uint32 pp_move3;
+
+    void Init()
+    {
+        move0 = -1;
+        pp_move0 = 0;
+        move1 = -1;
+        pp_move1 = 0;
+        move2 = -1;
+        pp_move2 = 0;
+        move3 = -1;
+        pp_move3 = 0;
+    }
+
+    int32* GetMovesID()
+    {
+        static int32 moves[4];
+
+        moves[0] = move0;
+        moves[1] = move1;
+        moves[2] = move2;
+        moves[3] = move3;
+
+        return moves;
+    }
+
+    uint32* GetMovesPP()
+    {
+        static uint32 pp_moves[4];
+
+        pp_moves[0] = pp_move0;
+        pp_moves[1] = pp_move1;
+        pp_moves[2] = pp_move2;
+        pp_moves[3] = pp_move3;
+
+        return pp_moves;
+    }
 };
 
 struct TC_GAME_API PrismaNature
@@ -487,6 +605,16 @@ struct TC_GAME_API PrismaCharacteristic
         case 29: return "Quick to flee"; break;
         }
     }
+};
+
+struct TC_GAME_API PrismaStatistique
+{
+    uint32 stamina;
+    uint32 attack;
+    uint32 defense;
+    uint32 special_attack;
+    uint32 special_defense;
+    uint32 speed;
 };
 
 struct CombatCampPosition
