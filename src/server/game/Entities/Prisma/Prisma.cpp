@@ -2,8 +2,8 @@
 #include "Prisma.h"
 
 Prisma::Prisma(bool isWorldObject)
-    : Creature(isWorldObject), _iv_generated(false), _nature_generated(false), _gender_generated(false),
-    m_guid(0), m_id(0), m_experience(0), m_item(-1), m_level(1), m_current_stamina(0),
+    : Creature(isWorldObject), owner(nullptr), _iv_generated(false), _nature_generated(false), _gender_generated(false),
+    _is_loaded_from_guid(false), m_guid(0), m_id(0), m_experience(0), m_item(-1), m_level(1), m_current_stamina(0),
     m_status_volatile_flags(0), m_status_non_volatile_flags(0), m_status_volatile_combat_flags(0)
 { }
 
@@ -78,6 +78,8 @@ bool Prisma::InitializePrismaFromGuid(uint32 guid)
         _nature_generated = true;
         _gender_generated = true;
         GenerateCalculatedStat();
+
+        _is_loaded_from_guid = true;
         return true;
     }
 
@@ -143,7 +145,7 @@ uint16 Prisma::CalculateStat(PrismaStats _stat)
     return result;
 }
 
-uint32 Prisma::CalculateDamage(Prisma* attacker, Prisma* target, uint32 move_id, bool is_second_strike)
+uint32 Prisma::CalculateDamage(Prisma* attacker, Prisma* target, uint32 move_id, PrismaWeathers weather, bool is_second_strike)
 {
     if (!attacker || !target || move_id == 0)
         return 0;
@@ -180,7 +182,19 @@ uint32 Prisma::CalculateDamage(Prisma* attacker, Prisma* target, uint32 move_id,
     // SECOND STRIKE
     damage *= (is_second_strike) ? 0.25f : 1.f;
 
-    // TODO: calculate weather
+    // WEATHER: increase
+    if ((weather == PrismaWeathers::RAIN && move_template->Type == PrismaTypes::WATER) ||
+        (weather == PrismaWeathers::HARSH_SUNLIGHT && move_template->Type == PrismaTypes::FIRE))
+    {
+        damage *= 1.5f;
+    }
+
+    // WEATHER: decrease
+    if ((weather == PrismaWeathers::RAIN && move_template->Type == PrismaTypes::FIRE) ||
+        (weather == PrismaWeathers::HARSH_SUNLIGHT && move_template->Type == PrismaTypes::WATER))
+    {
+        damage *= 0.5f;
+    }
 
     // TODO: add check is target can avoid the crit damage
     damage *= (frand(0.f, 100.f) < move_template->CritRate) ? 1.5f : 1.f;
@@ -228,6 +242,66 @@ uint32 Prisma::CalculateDamage(Prisma* attacker, Prisma* target, uint32 move_id,
     }
 
     return damage;
+}
+
+void Prisma::ApplyDamage(uint32 damage)
+{
+    if (damage >= m_current_stamina)
+    {
+        m_current_stamina = 0;
+        return;
+    }
+
+    m_current_stamina -= damage;
+}
+
+void Prisma::ApplyExperience(uint32 exp)
+{
+    m_experience += exp;
+
+    while (m_experience >= Prisma::GetRequiredExperienceForNextLevel(m_level, PrismaExperienceTypes::MEDIUM_FAST))
+    {
+        m_experience -= Prisma::GetRequiredExperienceForNextLevel(m_level, PrismaExperienceTypes::MEDIUM_FAST);
+        LevelUp();
+    }
+
+    // PUSH NEW EXPERIENCE
+    {
+        std::string data = "";
+
+        data += "UpdateExperience|";
+        data += std::to_string(m_experience) + ",";
+        data += std::to_string(Prisma::GetRequiredExperienceForNextLevel(m_level, PrismaExperienceTypes::MEDIUM_FAST));
+
+        owner->SendPrismaData("PRISMA", data);
+    }
+}
+
+void Prisma::LevelUp()
+{
+    m_level++;
+
+    // PUSH NEW LEVEL
+    {
+        std::string data = "";
+
+        data += "LevelUp|";
+        data += std::to_string(m_level);
+
+        owner->SendPrismaData("PRISMA", data);
+    }
+}
+
+bool Prisma::MoveUseSpeedPriority(int32 move_id)
+{
+    if (move_id <= 0)
+        return false;
+
+    const PrismaMoveTemplate* move_template = sObjectMgr->GetPrismaMoveTemplate(move_id);
+    if (!move_template)
+        return false;
+
+    return move_template->SpeedPriority;
 }
 
 /*
@@ -390,6 +464,7 @@ Prisma* Prisma::Invoke(Player* owner, uint8 num)
         return nullptr;
     }
     sObjectMgr->AddCreatureToGrid(db_guid, sObjectMgr->GetCreatureData(db_guid));
+    prisma->SetOwner(owner);
     return prisma;
 }
 
@@ -527,6 +602,22 @@ void Prisma::GenerateGender()
     else _gender.Set(PrismaGenders::MALE);
 
     _gender_generated = true;
+}
+
+std::vector<std::string> Prisma::SplitData(const std::string& data, const std::string& delimiter, bool add)
+{
+    std::string _data = data;
+    if (add) _data += delimiter;
+    std::vector<std::string> splitter;
+
+    size_t pos = 0;
+    while ((pos = _data.find(delimiter)) != std::string::npos)
+    {
+        splitter.push_back(_data.substr(0, pos));
+        _data.erase(0, pos + delimiter.length());
+    }
+
+    return splitter;
 }
 
 void Prisma::GenerateCalculatedStat()
@@ -961,8 +1052,16 @@ int Prisma::GetRequiredExperienceForNextLevel(int level, PrismaExperienceTypes t
     return result;
 }
 
-int Prisma::GetGainExperience(int level, int target_level, int target_base_experience, bool against_trainer, bool use_multi_exp, int number_prisma_during_combat, float other_multiplicator)
+int Prisma::GetGainExperience(Prisma* self, Prisma* killed, bool against_trainer, bool use_multi_exp, int number_prisma_during_combat, float other_multiplicator)
 {
+    int level = self->GetPrismaLevel();
+    int target_level = killed->GetPrismaLevel();
+
+    int target_base_experience = 64; // default
+    const PrismaTemplate* killed_template = sObjectMgr->GetPrismaTemplate(killed->GetPrismaEntry());
+    if (killed_template)
+        target_base_experience = killed_template->BaseExperience;
+
     int   A = (target_level * 2) + 10;
     float B = (float(target_base_experience * target_level) / 5.f);
     int   C = (level + target_level + 10);

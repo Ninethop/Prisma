@@ -6,6 +6,70 @@
 #include "PrismaData.h"
 #include "ObjectMgr.h"
 
+struct PrismaUnitTurnData
+{
+    bool played;
+    uint32 speed;
+    bool speed_priority;
+    uint32 damage;
+    Prisma* damage_target;
+    uint32 heal;
+    Prisma* heal_target;
+
+    void Initialize()
+    {
+        played = false;
+        speed = 0;
+        speed_priority = false;
+        damage = 0;
+        damage_target = nullptr;
+        heal = 0;
+        heal_target = nullptr;
+    }
+
+    void SetDamage(Prisma* _target, uint32 _damage)
+    {
+        damage_target = _target;
+        damage = _damage;
+    }
+
+    void SetHeal(Prisma* _target, uint32 _heal)
+    {
+        heal_target = _target;
+        heal = _heal;
+    }
+
+    void SetSpeed(uint32 val, bool priority)
+    {
+        speed = val;
+        speed_priority = priority;
+    }
+};
+
+struct PrismaTurnData
+{
+    std::vector<PrismaUnitTurnData> data;
+
+    bool CanPlayTurn()
+    {
+        for (auto& turn_data : data)
+            if (!turn_data.played)
+                return false;
+
+        return true;
+    }
+
+    void Reset() { data.clear(); }
+
+    static bool SortBySpeed(const PrismaUnitTurnData& a, const PrismaUnitTurnData& b)
+    {
+        uint32 calculated_a = a.speed + (a.speed_priority ? 1000 : 0);
+        uint32 calculated_b = b.speed + (b.speed_priority ? 1000 : 0);
+
+        return calculated_a >= calculated_b;
+    }
+};
+
 class TC_GAME_API Prisma : public Creature
 {
 public:
@@ -13,9 +77,21 @@ public:
 
     void InitializePrisma();
     bool InitializePrismaFromGuid(uint32 guid);
+
+    void SetOwner(Player* player) { owner = player; };
+    Player* GetOwner() { return owner; };
+
     uint32 GetPrismaEntry() { return m_id; };
     uint16 CalculateStat(PrismaStats _stat);
-    static uint32 CalculateDamage(Prisma* attacker, Prisma* target, uint32 move_id, bool is_second_strike);
+    static uint32 CalculateDamage(Prisma* attacker, Prisma* target, uint32 move_id, PrismaWeathers weather, bool is_second_strike);
+    void ApplyDamage(uint32 damage);
+    void ApplyExperience(uint32 exp);
+    void LevelUp();
+    bool IsLast();
+
+    bool IsPrismaDead() { return (m_current_stamina == 0); };
+    static bool IsPrismaDead(Prisma* prisma) { return (prisma->GetCurrentStamina() == 0); };
+    static bool MoveUseSpeedPriority(int32 move_id);
 
     void SavePrismaToDB();
     void SetPrismaLevel(uint32 level, bool update = false);
@@ -49,7 +125,7 @@ public:
     static float GetMoveCoefficient(PrismaTypes attack, PrismaTypes target_type1, PrismaTypes target_type2);
 
     static int GetRequiredExperienceForNextLevel(int level, PrismaExperienceTypes Type);
-    static int GetGainExperience(int level, int target_level, int target_base_experience, bool against_trainer, bool use_multi_exp, int number_prisma_during_combat, float other_multiplicator);
+    static int GetGainExperience(Prisma* self, Prisma* killed, bool against_trainer, bool use_multi_exp, int number_prisma_during_combat, float other_multiplicator);
 
     uint32 GetPrismaGUID() { return m_guid; };
     uint32 GetPrismaExperience() { return m_experience; };
@@ -58,9 +134,12 @@ public:
     uint32 GetCurrentStamina() { return m_current_stamina; };
     PrismaStatistique GetCalculatedStat() { return _calculatedStat; };
     PrismaStatistique GetCurrentStat() { return _currentStat; };
-    PrismaMoveSet GetPrismaMoveSet() { return _move; };
+    PrismaMoveSet* GetPrismaMoveSet() { return &_move; };
+
+    static std::vector<std::string> SplitData(const std::string& data, const std::string& delimiter, bool add);
 
 private:
+    Player* owner;
     uint32 m_guid;
     uint32 m_id;
     uint32 m_experience;
@@ -90,6 +169,7 @@ private:
     bool _iv_generated;
     bool _nature_generated;
     bool _gender_generated;
+    bool _is_loaded_from_guid;
 
     static float GetCoefficientTypeNormal(PrismaTypes against);
     static float GetCoefficientTypeFire(PrismaTypes against);
