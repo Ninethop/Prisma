@@ -13,8 +13,8 @@
 #define RAND_OFFSET_WILD_MASTER             (M_PI_4 / 4.0)
 #define MAX_ITERATION_ON_ENTER_COMBAT       25
 
-#define PRISMA_TEMPLATE_RESERVED_MIN        45000
-#define PRISMA_TEMPLATE_RESERVED_MAX        55000
+#define PRISMA_TEMPLATE_RESERVED_MIN        46000
+#define PRISMA_TEMPLATE_RESERVED_MAX        56000
 
 #define IV_MIN_VALUE        0
 #define IV_MAX_VALUE        31
@@ -65,12 +65,20 @@ enum class PrismaMoveCategories
 
 enum class PrismaMoveSelectionTypes
 {
-    TARGET,             // 0
-    ENEMY,              // 1
-    ALL                 // 2
+    SELECTED_TARGET,    // 0
+    SELECTED_FRIEND,    // 1
+    RANDOM_TARGET,      // 2
+    RANDOM_FRIEND,      // 3
+    ALL_TARGET,         // 4
+    ALL_FRIEND,         // 5
+    ALL_EXEPT_SELF,     // 6
+    FIELD_TARGET,       // 7
+    FIELD_FRIEND,       // 8
+    ALL,                // 9
+    SELF                // 10
 };
 
-#define NUM_MAX_MOVE_SELECTION_TYPE             3
+#define NUM_MAX_MOVE_SELECTION_TYPE             11
 
 enum class PrismaTypes
 {
@@ -320,7 +328,7 @@ struct TC_GAME_API PrismaMoveTemplate
     uint32 BasePower;
     uint32 Accuracy;
     float CritRate;
-    bool SpeedPriority;
+    int32 SpeedPriority;
     PrismaMoveSelectionTypes SelectionType;
 };
 
