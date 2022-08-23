@@ -228,6 +228,26 @@ enum class PrismaWeathers
 
 #define NUM_MAX_PRISMA_WEATHER                  8
 
+enum class PrismaCombatTypes
+{
+    WILD,
+    TRAINER,
+    PLAYER
+};
+
+#define NUM_MAX_PRISMA_COMBAT_TYPE              3
+
+enum class PrismaTurnInformations
+{
+    AGAIN,
+    SWITCH_PLAYER,
+    SWITCH_TARGET,
+    WIN,
+    LOOSE
+};
+
+#define NUM_MAX_PRISMA_TURN_INFORMATION         5
+
 struct TC_GAME_API PrismaTemplate
 {
     uint32 Entry;
@@ -430,6 +450,43 @@ struct TC_GAME_API PrismaMoveSet
         pp_move2 = 0;
         move3 = -1;
         pp_move3 = 0;
+    }
+
+    bool UseMove(uint32 index)
+    {
+        if (index == 0)
+        {
+            if (pp_move0 == 0)
+                return false;
+            pp_move0--;
+            return true;
+        }
+
+        if (index == 1)
+        {
+            if (pp_move1 == 0)
+                return false;
+            pp_move1--;
+            return true;
+        }
+
+        if (index == 2)
+        {
+            if (pp_move2 == 0)
+                return false;
+            pp_move2--;
+            return true;
+        }
+
+        if (index == 3)
+        {
+            if (pp_move3 == 0)
+                return false;
+            pp_move3--;
+            return true;
+        }
+
+        return false;
     }
 
     int32* GetMovesID()
