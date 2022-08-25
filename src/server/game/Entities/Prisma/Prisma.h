@@ -6,70 +6,6 @@
 #include "PrismaData.h"
 #include "ObjectMgr.h"
 
-struct PrismaUnitTurnData
-{
-    bool played;
-    uint32 speed;
-    bool speed_priority;
-    uint32 damage;
-    Prisma* damage_target;
-    uint32 heal;
-    Prisma* heal_target;
-
-    void Initialize()
-    {
-        played = false;
-        speed = 0;
-        speed_priority = false;
-        damage = 0;
-        damage_target = nullptr;
-        heal = 0;
-        heal_target = nullptr;
-    }
-
-    void SetDamage(Prisma* _target, uint32 _damage)
-    {
-        damage_target = _target;
-        damage = _damage;
-    }
-
-    void SetHeal(Prisma* _target, uint32 _heal)
-    {
-        heal_target = _target;
-        heal = _heal;
-    }
-
-    void SetSpeed(uint32 val, bool priority)
-    {
-        speed = val;
-        speed_priority = priority;
-    }
-};
-
-struct PrismaTurnData
-{
-    std::vector<PrismaUnitTurnData> data;
-
-    bool CanPlayTurn()
-    {
-        for (auto& turn_data : data)
-            if (!turn_data.played)
-                return false;
-
-        return true;
-    }
-
-    void Reset() { data.clear(); }
-
-    static bool SortBySpeed(const PrismaUnitTurnData& a, const PrismaUnitTurnData& b)
-    {
-        uint32 calculated_a = a.speed + (a.speed_priority ? 1000 : 0);
-        uint32 calculated_b = b.speed + (b.speed_priority ? 1000 : 0);
-
-        return calculated_a >= calculated_b;
-    }
-};
-
 class TC_GAME_API Prisma : public Creature
 {
 public:
@@ -83,7 +19,7 @@ public:
 
     uint32 GetPrismaEntry() { return m_id; };
     uint16 CalculateStat(PrismaStats _stat);
-    static uint32 CalculateDamage(Prisma* attacker, Prisma* target, uint32 move_id, PrismaWeathers weather, bool is_second_strike);
+    static uint32 CalculateDamage(Prisma* attacker, Prisma* target, uint32 move_id, PrismaWeathers weather, bool is_second_strike, bool* is_critical);
     void ApplyDamage(uint32 damage);
     void ApplyExperience(uint32 exp);
     void LevelUp();
@@ -91,7 +27,7 @@ public:
 
     bool IsPrismaDead() { return (m_current_stamina == 0); };
     static bool IsPrismaDead(Prisma* prisma) { return (prisma->GetCurrentStamina() == 0); };
-    static bool MoveUseSpeedPriority(int32 move_id);
+    static int8 MoveSpeedPriority(int32 move_id);
 
     void SavePrismaToDB();
     void SetPrismaLevel(uint32 level, bool update = false);
@@ -134,7 +70,7 @@ public:
     uint32 GetCurrentStamina() { return m_current_stamina; };
     PrismaStatistique GetCalculatedStat() { return _calculatedStat; };
     PrismaStatistique GetCurrentStat() { return _currentStat; };
-    PrismaMoveSet* GetPrismaMoveSet() { return &_move; };
+    PrismaMoveSet GetPrismaMoveSet() { return _move; };
 
     static std::vector<std::string> SplitData(const std::string& data, const std::string& delimiter, bool add);
 
@@ -165,6 +101,7 @@ private:
     void GenerateNature();
     void GenerateGender();
     void GenerateCalculatedStat();
+    void GenerateMoveSet();
 
     bool _iv_generated;
     bool _nature_generated;
@@ -192,4 +129,66 @@ private:
     static int GetMediumSlowExperience(int level);
     static int GetMediumFastExperience(int level);
     static int GetFastExperience(int level);
+};
+
+struct PrismaUnitTurnData
+{
+    Prisma* self;
+    bool is_friend;
+    bool played;
+    uint32 move_id;
+    uint32 speed;
+    int32 speed_priority;
+
+    uint32 selection;
+    std::vector<Prisma*> friends;
+    std::vector<Prisma*> enemies;
+
+    void Initialize(Prisma* _self, bool _is_friend, uint32 _move_id, uint32 _selection,
+        std::vector<Prisma*> _friends, std::vector<Prisma*> _enemies)
+    {
+        self = _self;
+        is_friend = _is_friend;
+        played = false;
+
+        move_id = _move_id;
+        speed = self->GetCalculatedStat().speed;
+        speed_priority = Prisma::MoveSpeedPriority(move_id);
+
+        selection = _selection;
+        friends = _friends;
+        enemies = _enemies;
+    }
+
+    void SetSelection(uint32 _selection, std::vector<Prisma*> _friends, std::vector<Prisma*> _enemies)
+    {
+        selection = _selection;
+        friends = _friends;
+        enemies = _enemies;
+    }
+
+};
+
+struct PrismaTurnData
+{
+    std::vector<PrismaUnitTurnData> data;
+
+    bool CanPlayTurn()
+    {
+        for (auto& turn_data : data)
+            if (!turn_data.played)
+                return false;
+
+        return true;
+    }
+
+    void Reset() { data.clear(); }
+
+    static bool SortBySpeed(const PrismaUnitTurnData& a, const PrismaUnitTurnData& b)
+    {
+        uint32 calculated_a = a.speed + (a.speed_priority * 1000);
+        uint32 calculated_b = b.speed + (b.speed_priority * 1000);
+
+        return calculated_a >= calculated_b;
+    }
 };
