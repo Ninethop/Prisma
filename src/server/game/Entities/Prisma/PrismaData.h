@@ -1,11 +1,14 @@
 #pragma once
 
 #include "SharedDefines.h"
+#include "Log.h"
 #include <string>
 #include <unordered_map>
 #include <vector>
 #include <cmath>
 #include <Random.h>
+
+#define PRISMA_MAX_MOVE                     4
 
 #define CONFRONTATION_RANGE                 4.f
 #define COMBAT_RANGE_FROM_PIVOT             10.f
@@ -98,7 +101,7 @@ enum class PrismaTypes
     DARK,               // 12
     METAL,              // 13
     LIGHT,              // 14
-    SOUND               // 16
+    SOUND               // 15
 };
 
 #define NUM_MAX_PRISMA_TYPE                     16
@@ -251,10 +254,11 @@ enum class PrismaTurnInformations
     SWITCH_PLAYER,
     SWITCH_TARGET,
     WIN,
-    LOOSE
+    LOOSE,
+    EQUALITY
 };
 
-#define NUM_MAX_PRISMA_TURN_INFORMATION         5
+#define NUM_MAX_PRISMA_TURN_INFORMATION         6
 
 struct TC_GAME_API PrismaTemplate
 {
@@ -460,7 +464,34 @@ struct TC_GAME_API PrismaMoveSet
         pp_move3 = 0;
     }
 
-    bool UseMove(uint32 index)
+    void SetMove(uint32 index, int32 _id, uint32 _pp)
+    {
+        if (index == 0)
+        {
+            move0 = _id;
+            pp_move0 = _pp;
+        }
+
+        if (index == 1)
+        {
+            move1 = _id;
+            pp_move1 = _pp;
+        }
+
+        if (index == 2)
+        {
+            move2 = _id;
+            pp_move2 = _pp;
+        }
+
+        if (index == 3)
+        {
+            move3 = _id;
+            pp_move3 = _pp;
+        }
+    }
+
+    bool UseMoveIndex(uint32 index)
     {
         if (index == 0)
         {
@@ -497,6 +528,26 @@ struct TC_GAME_API PrismaMoveSet
         return false;
     }
 
+    bool UseMoveId(uint32 id)
+    {
+        if (id == 165)
+            return true;
+
+        for (int i = 0; i < 4; ++i)
+        {
+            if (*(GetMovesID() + i) == id)
+            {
+                if (*(GetMovesPP() + i) > 0)
+                {
+                    *(GetMovesPP() + i) -= 1;
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     int32* GetMovesID()
     {
         static int32 moves[4];
@@ -519,6 +570,39 @@ struct TC_GAME_API PrismaMoveSet
         pp_moves[3] = pp_move3;
 
         return pp_moves;
+    }
+
+    uint32 GetRandomMoveId()
+    {
+        bool null = true;
+        bool unusable = true;
+        std::vector<uint32> usable_id;
+        for (int i = 0; i < PRISMA_MAX_MOVE; ++i)
+        {
+            int32 move_id = *(GetMovesID() + i);
+            uint32 move_pp = *(GetMovesPP() + i);
+            TC_LOG_INFO("prisma", "%i %u", move_id, move_pp);
+
+            if (move_id > 0)
+            {
+                null = false;
+
+                if (move_pp > 0)
+                {
+                    unusable = false;
+                    usable_id.push_back(move_id);
+                }
+            }
+        }
+
+        if (null || unusable || usable_id.size() == 0)
+            return 165;
+
+        if (usable_id.size() == 1)
+            return usable_id[0];
+
+        uint32 rand = urand(0, usable_id.size() - 1);
+        return usable_id[rand];
     }
 };
 
