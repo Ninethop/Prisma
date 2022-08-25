@@ -1600,7 +1600,6 @@ bool Creature::LoadFromDB(ObjectGuid::LowType spawnId, Map* map, bool addToMap, 
         // If only dead instance(s) exist, despawn them and spawn a new (maybe also dead) version
         const auto creatureBounds = map->GetCreatureBySpawnIdStore().equal_range(spawnId);
         std::vector <Creature*> despawnList;
-
         if (creatureBounds.first != creatureBounds.second)
         {
             for (auto itr = creatureBounds.first; itr != creatureBounds.second; ++itr)
@@ -1625,7 +1624,6 @@ bool Creature::LoadFromDB(ObjectGuid::LowType spawnId, Map* map, bool addToMap, 
     }
 
     CreatureData const* data = sObjectMgr->GetCreatureData(spawnId);
-
     if (!data)
     {
         TC_LOG_ERROR("sql.sql", "Creature (SpawnID %u) not found in table `creature`, can't load. ", spawnId);
@@ -1644,9 +1642,7 @@ bool Creature::LoadFromDB(ObjectGuid::LowType spawnId, Map* map, bool addToMap, 
 
     //We should set first home position, because then AI calls home movement
     SetHomePosition(*this);
-
     m_deathState = ALIVE;
-
     m_respawnTime = GetMap()->GetCreatureRespawnTime(m_spawnId);
 
     if (!m_respawnTime && !map->IsSpawnGroupActive(data->spawnGroupData->groupId))
@@ -1689,11 +1685,10 @@ bool Creature::LoadFromDB(ObjectGuid::LowType spawnId, Map* map, bool addToMap, 
         }
     }
 
-    SetSpawnHealth();
+    SetHealth(GetMaxHealth());
 
     // checked at creature_template loading
     m_defaultMovementType = MovementGeneratorType(data->movementType);
-
     if (addToMap && !GetMap()->AddToMap(this))
         return false;
     return true;
