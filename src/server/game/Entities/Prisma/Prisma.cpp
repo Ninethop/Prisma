@@ -26,12 +26,12 @@ void Prisma::InitializePrisma()
     if (!GenderIsGenerated())
         GenerateGender();
 
-    // move set is for now totally empty
     {
         _move.Init();
     }
 
     GenerateCalculatedStat();
+    GenerateMoveSet();
     m_current_stamina = _calculatedStat.stamina;
 }
 
@@ -145,19 +145,17 @@ uint16 Prisma::CalculateStat(PrismaStats _stat)
     return result;
 }
 
-uint32 Prisma::CalculateDamage(Prisma* attacker, Prisma* target, uint32 move_id, PrismaWeathers weather, bool is_second_strike)
+uint32 Prisma::CalculateDamage(Prisma* attacker, Prisma* target, uint32 move_id, PrismaWeathers weather, bool is_second_strike, bool* is_critical)
 {
     if (!attacker || !target || move_id == 0)
         return 0;
-
     const PrismaMoveTemplate* move_template = sObjectMgr->GetPrismaMoveTemplate(move_id);
     if (!move_template)
         return 0;
-
     // START BASE
-    uint32 damage = (2 * target->GetPrismaLevel() / 5) + 2;
-    damage *= move_template->BasePower;
 
+    float damage = (2.f * float(target->GetPrismaLevel()) / 5.f) + 2.f;
+    damage *= float(move_template->BasePower);
     uint16 AttackStat;
     uint16 DefenseStat;
     if (move_template->Category == PrismaMoveCategories::PHYSICAL)
@@ -171,13 +169,13 @@ uint32 Prisma::CalculateDamage(Prisma* attacker, Prisma* target, uint32 move_id,
         DefenseStat = target->GetCalculatedStat().special_defense;
     }
 
-    damage *= (AttackStat / DefenseStat);
-    damage /= 50;
-    damage += 2;
+    damage *= float(float(AttackStat) / float(DefenseStat));
+    damage /= 50.f;
+    damage += 2.f;
     // END BASE
 
     // SINGLE OR MULTI TARGET
-    damage *= (move_template->SelectionType == PrismaMoveSelectionTypes::TARGET) ? 1.f : 0.75f;
+    damage *= (move_template->SelectionType == PrismaMoveSelectionTypes::SELECTED_TARGET) ? 1.f : 0.75f;
 
     // SECOND STRIKE
     damage *= (is_second_strike) ? 0.25f : 1.f;
@@ -197,7 +195,12 @@ uint32 Prisma::CalculateDamage(Prisma* attacker, Prisma* target, uint32 move_id,
     }
 
     // TODO: add check is target can avoid the crit damage
-    damage *= (frand(0.f, 100.f) < move_template->CritRate) ? 1.5f : 1.f;
+    *is_critical = false;
+    if (frand(0.f, 100.f) < move_template->CritRate)
+    {
+        damage *= 1.5f;
+        *is_critical = true;
+    }
 
     // RANDOM DECREASE
     damage *= frand(0.85f, 1.f);
@@ -235,13 +238,12 @@ uint32 Prisma::CalculateDamage(Prisma* attacker, Prisma* target, uint32 move_id,
         damage *= 0.5f;
     }
 
-
     /* Here can be add extra feature to move specificity */
     {
 
     }
 
-    return damage;
+    return uint32(damage);
 }
 
 void Prisma::ApplyDamage(uint32 damage)
@@ -292,14 +294,23 @@ void Prisma::LevelUp()
     }
 }
 
-bool Prisma::MoveUseSpeedPriority(int32 move_id)
+bool Prisma::IsLast()
+{
+    if (!owner)
+        return true;
+
+    // need to check is this prisma is the last one ( all the other are dead )
+    return true;
+}
+
+int8 Prisma::MoveSpeedPriority(int32 move_id)
 {
     if (move_id <= 0)
-        return false;
+        return int8(0);
 
     const PrismaMoveTemplate* move_template = sObjectMgr->GetPrismaMoveTemplate(move_id);
     if (!move_template)
-        return false;
+        return int8(0);
 
     return move_template->SpeedPriority;
 }
@@ -630,6 +641,76 @@ void Prisma::GenerateCalculatedStat()
     _calculatedStat.speed              = CalculateStat(PrismaStats::SPEED);
 
     _currentStat = _calculatedStat;
+}
+
+void Prisma::GenerateMoveSet()
+{
+    // contain all moves possible for prisma for current level
+    std::vector<uint32> move_list;
+    for (int l = 0; l < m_level; ++l)
+    {
+        auto level_list = sObjectMgr->GetPrismaMoveSet(m_id, l);
+        if (level_list)
+        {
+            for (auto& move : *level_list)
+                move_list.push_back(move);
+        }
+    }
+
+    if (move_list.size() == 0)
+        return;
+
+    float percent = 100;
+    std::vector<uint32> move_used;
+    int n_move = (move_list.size() > 4) ? PRISMA_MAX_MOVE : move_list.size();
+    for (int i = 0; i < n_move; ++i)
+    {
+        float calculated_percent = percent + (float(m_level) * 0.5f);
+        if (calculated_percent > 100.f)
+            calculated_percent = 100.f;
+
+        float rand = frand(0.f, 100.f);
+
+        if (rand > calculated_percent)
+            break;
+
+        // generate a move
+        {
+            uint32 rand_move;
+            while (true)
+            {
+                rand_move = urand(0, move_list.size() - 1);
+
+                if (move_used.size() == 0)
+                    break;
+
+                bool found = false;
+                for (int y = 0; y < move_used.size(); ++y)
+                    if (move_used[y] == move_list[rand_move])
+                        found = true;
+
+                if (!found)
+                    break;
+            }
+
+            uint32 move_id = move_list[rand_move];
+            move_used.push_back(move_id);
+
+            const PrismaMoveTemplate* move_template = sObjectMgr->GetPrismaMoveTemplate(move_id);
+            if (!move_template)
+            {
+                TC_LOG_INFO("prisma", "Can't load move template %u, prisma: %s have %u moves loaded", move_id, GetName(), i);
+                break;
+            }
+
+            _move.SetMove(i, move_id, move_template->PowerPoints);
+
+            // DEBUG
+            TC_LOG_INFO("prisma", "%s have loaded move %s (%u), %f percent for %f", GetName(), move_template->Name, move_id, rand, calculated_percent);
+        }
+
+        percent *= 0.5f;
+    }
 }
 
 float Prisma::GetMoveCoefficient(PrismaTypes move, PrismaTypes target_type)
