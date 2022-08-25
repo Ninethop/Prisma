@@ -25,20 +25,14 @@ public:
         if (_data.size() == 0)
             return;
 
-        for (auto a : _data)
-            TC_LOG_INFO("prisma", "%s", a);
-
         // player use a move
         if (_data[0] == "UseMove")
         {
-            TC_LOG_INFO("prisma", "UseMove(%u)", _data.size());
-            // UseMove size is 2
             if (_data.size() != 2)
                 return;
 
             uint32 move_index = uint32(std::stoul(_data[1])) - 1;
-            TC_LOG_INFO("prisma", "MoveIndex(%u)", move_index);
-            combat->DealDamage(player, move_index);
+            combat->UseMove(player, move_index);
             return;
         }
 
