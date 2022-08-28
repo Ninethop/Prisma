@@ -334,6 +334,12 @@ struct TC_GAME_API PrismaMoveTemplate
     float CritRate;
     int32 SpeedPriority;
     PrismaMoveSelectionTypes SelectionType;
+    uint32 NonVolatileStatusFlags;
+    float ProbabilityNVSF;
+    uint32 VolatileStatusFlags;
+    float ProbabilityVSF;
+    uint32 VolatileCombatStatusFlags;
+    float ProbabilityVCSF;
 };
 
 struct TC_GAME_API PrismaIndividualValue
@@ -452,6 +458,17 @@ struct TC_GAME_API PrismaMoveSet
     int32 move3;
     uint32 pp_move3;
 
+    void Debug(std::string name, uint32 guid)
+    {
+        TC_LOG_INFO("prisma", "=== Debug %s (%u) move set ===", name, guid);
+        TC_LOG_INFO("prisma", "  > {ID} : {PP}");
+
+        for (int i = 0; i < 4; ++i)
+            TC_LOG_INFO("prisma", "  > %i : %u", *(GetMovesID() + i), *(GetMovesPP() + i));
+
+        TC_LOG_INFO("prisma", "=== End debug ===");
+    }
+
     void Init()
     {
         move0 = -1;
@@ -466,6 +483,9 @@ struct TC_GAME_API PrismaMoveSet
 
     void SetMove(uint32 index, int32 _id, uint32 _pp)
     {
+        if (index > 4)
+            return;
+
         if (index == 0)
         {
             move0 = _id;
@@ -491,61 +511,24 @@ struct TC_GAME_API PrismaMoveSet
         }
     }
 
-    bool UseMoveIndex(uint32 index)
+    int32 GetIndex(int32 move_id)
     {
-        if (index == 0)
-        {
-            if (pp_move0 == 0)
-                return false;
-            pp_move0--;
-            return true;
-        }
+        if (move0 == move_id) return 0;
+        if (move1 == move_id) return 1;
+        if (move2 == move_id) return 2;
+        if (move3 == move_id) return 3;
 
-        if (index == 1)
-        {
-            if (pp_move1 == 0)
-                return false;
-            pp_move1--;
-            return true;
-        }
-
-        if (index == 2)
-        {
-            if (pp_move2 == 0)
-                return false;
-            pp_move2--;
-            return true;
-        }
-
-        if (index == 3)
-        {
-            if (pp_move3 == 0)
-                return false;
-            pp_move3--;
-            return true;
-        }
-
-        return false;
+        return -1;
     }
 
-    bool UseMoveId(uint32 id)
+    bool CanUseMove(uint32 index)
     {
-        if (id == 165)
-            return true;
+        return ((*(GetMovesID() + index) > 0) && (*(GetMovesPP() + index) > 0));
+    }
 
-        for (int i = 0; i < 4; ++i)
-        {
-            if (*(GetMovesID() + i) == id)
-            {
-                if (*(GetMovesPP() + i) > 0)
-                {
-                    *(GetMovesPP() + i) -= 1;
-                    return true;
-                }
-            }
-        }
-
-        return false;
+    bool CanUseMoves()
+    {
+        return ((pp_move0 + pp_move1 + pp_move2 + pp_move3) > 0);
     }
 
     int32* GetMovesID()
@@ -581,7 +564,6 @@ struct TC_GAME_API PrismaMoveSet
         {
             int32 move_id = *(GetMovesID() + i);
             uint32 move_pp = *(GetMovesPP() + i);
-            TC_LOG_INFO("prisma", "%i %u", move_id, move_pp);
 
             if (move_id > 0)
             {
