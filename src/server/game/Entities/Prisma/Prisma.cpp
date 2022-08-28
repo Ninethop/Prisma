@@ -4,7 +4,8 @@
 Prisma::Prisma(bool isWorldObject)
     : Creature(isWorldObject), owner(nullptr), _iv_generated(false), _nature_generated(false), _gender_generated(false),
     _is_loaded_from_guid(false), m_guid(0), m_id(0), m_experience(0), m_item(-1), m_level(1), m_current_stamina(0),
-    m_status_volatile_flags(0), m_status_non_volatile_flags(0), m_status_volatile_combat_flags(0)
+    m_status_volatile_flags(0), m_status_non_volatile_flags(0), m_status_volatile_combat_flags(0),
+    m_turn_volatile(-1), m_turn_non_volatile(-1), m_turn_volatile_combat(-1)
 { }
 
 void Prisma::InitializePrisma()
@@ -145,7 +146,7 @@ uint16 Prisma::CalculateStat(PrismaStats _stat)
     return result;
 }
 
-uint32 Prisma::CalculateDamage(Prisma* attacker, Prisma* target, uint32 move_id, PrismaWeathers weather, bool is_second_strike, bool* is_critical)
+uint32 Prisma::CalculateDamage(Prisma* attacker, Prisma* target, uint32 move_id, PrismaWeathers weather, bool is_second_strike)
 {
     if (!attacker || !target || move_id == 0)
         return 0;
@@ -195,11 +196,10 @@ uint32 Prisma::CalculateDamage(Prisma* attacker, Prisma* target, uint32 move_id,
     }
 
     // TODO: add check is target can avoid the crit damage
-    *is_critical = false;
     if (frand(0.f, 100.f) < move_template->CritRate)
     {
         damage *= 1.5f;
-        *is_critical = true;
+        attacker->SetMoveCritical();
     }
 
     // RANDOM DECREASE
@@ -301,6 +301,42 @@ bool Prisma::IsLast()
 
     // need to check is this prisma is the last one ( all the other are dead )
     return true;
+}
+
+void Prisma::RestoreStamina()
+{
+    m_current_stamina = GetCalculatedStat().stamina;
+}
+
+void Prisma::RestoreMove()
+{
+    for (int m = 0; m < 4; m++)
+    {
+        int move_id = *(_move.GetMovesID() + m);
+        PrismaMoveTemplate const* move_template = sObjectMgr->GetPrismaMoveTemplate(move_id);
+
+        if (move_template)
+            _move.SetMove(m, move_id, move_template->PowerPoints);
+    }
+}
+
+void Prisma::RestoreStatus()
+{
+    m_status_non_volatile_flags = 0;
+    m_turn_non_volatile = -1;
+
+    m_status_volatile_flags = 0;
+    m_turn_volatile = -1;
+
+    m_status_volatile_combat_flags = 0;
+    m_turn_volatile_combat = -1;
+}
+
+void Prisma::InitializeTurnInformation()
+{
+    m_turn_speed = 0;
+    m_turn_failed = false;
+    m_turn_critical = false;
 }
 
 int8 Prisma::MoveSpeedPriority(int32 move_id)
@@ -405,17 +441,47 @@ void Prisma::SetPrismaLevel(uint32 level, bool update)
 
 void Prisma::AddNonVolatileStatus(PrismaNonVolatileStatus _status)
 {
-    m_status_non_volatile_flags |= uint32(_status);
+    m_status_non_volatile_flags |= uint32(std::pow(2.0, double(_status)));
 }
 
 void Prisma::RemoveNonVolatileStatus(PrismaNonVolatileStatus _status)
 {
-    m_status_non_volatile_flags &= ~(uint32(_status));
+    m_status_non_volatile_flags &= ~(uint32(std::pow(2.0, double(_status))));
 }
 
 bool Prisma::HasNonVolatileStatus(PrismaNonVolatileStatus _status)
 {
-    return (m_status_non_volatile_flags & uint32(_status)) != 0;
+    return (m_status_non_volatile_flags & uint32(std::pow(2.0, double(_status)))) != 0;
+}
+
+void Prisma::AddVolatileStatus(PrismaVolatileStatus _status)
+{
+    m_status_volatile_flags |= uint32(std::pow(2.0, double(_status)));
+}
+
+void Prisma::RemoveVolatileStatus(PrismaVolatileStatus _status)
+{
+    m_status_volatile_flags &= ~(uint32(std::pow(2.0, double(_status))));
+}
+
+bool Prisma::HasVolatileStatus(PrismaVolatileStatus _status)
+{
+    return (m_status_volatile_flags & uint32(std::pow(2.0, double(_status)))) != 0;
+}
+
+void Prisma::AddVolatileCombatStatus(PrismaVolatileCombatStatus _status)
+{
+    m_status_volatile_combat_flags |= uint32(std::pow(2.0, double(_status)));
+}
+
+void Prisma::RemoveVolatileCombatStatus(PrismaVolatileCombatStatus _status)
+{
+    m_status_volatile_combat_flags &= ~(uint32(std::pow(2.0, double(_status))));
+}
+
+bool Prisma::HasVolatileCombatStatus(PrismaVolatileCombatStatus _status)
+{
+    return (m_status_volatile_combat_flags & uint32(std::pow(2.0, double(_status)))) != 0;
 }
 
 bool Prisma::HasPrisma(Player* player)
@@ -643,11 +709,38 @@ void Prisma::GenerateCalculatedStat()
     _currentStat = _calculatedStat;
 }
 
+void Prisma::UseMove(uint32 id)
+{
+    int32 index = _move.GetIndex(id);
+
+    switch (index)
+    {
+    default:
+        break;
+    case 0:
+        if (_move.pp_move0 > 0)
+            _move.pp_move0 -= 1;
+        break;
+    case 1:
+        if (_move.pp_move1 > 0)
+            _move.pp_move1 -= 1;
+        break;
+    case 2:
+        if (_move.pp_move2 > 0)
+            _move.pp_move2 -= 1;
+        break;
+    case 3:
+        if (_move.pp_move3 > 0)
+            _move.pp_move3 -= 1;
+        break;
+    }
+}
+
 void Prisma::GenerateMoveSet()
 {
     // contain all moves possible for prisma for current level
     std::vector<uint32> move_list;
-    for (int l = 0; l < m_level; ++l)
+    for (uint32 l = 0; l < m_level; ++l)
     {
         auto level_list = sObjectMgr->GetPrismaMoveSet(m_id, l);
         if (level_list)
@@ -1106,7 +1199,7 @@ float Prisma::GetCoefficientTypeSound(PrismaTypes against)
     }
 }
 
-int Prisma::GetRequiredExperienceForNextLevel(int level, PrismaExperienceTypes type)
+uint32 Prisma::GetRequiredExperienceForNextLevel(int level, PrismaExperienceTypes type)
 {
     int result = 0;
 
@@ -1128,9 +1221,9 @@ int Prisma::GetRequiredExperienceForNextLevel(int level, PrismaExperienceTypes t
     };
 
     if (result < 0)
-        return 0;
+        return uint32(0);
 
-    return result;
+    return uint32(result);
 }
 
 int Prisma::GetGainExperience(Prisma* self, Prisma* killed, bool against_trainer, bool use_multi_exp, int number_prisma_during_combat, float other_multiplicator)

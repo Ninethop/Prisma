@@ -19,11 +19,15 @@ public:
 
     uint32 GetPrismaEntry() { return m_id; };
     uint16 CalculateStat(PrismaStats _stat);
-    static uint32 CalculateDamage(Prisma* attacker, Prisma* target, uint32 move_id, PrismaWeathers weather, bool is_second_strike, bool* is_critical);
+    static uint32 CalculateDamage(Prisma* attacker, Prisma* target, uint32 move_id, PrismaWeathers weather, bool is_second_strike);
     void ApplyDamage(uint32 damage);
     void ApplyExperience(uint32 exp);
     void LevelUp();
     bool IsLast();
+
+    void RestoreStamina();
+    void RestoreMove();
+    void RestoreStatus();
 
     bool IsPrismaDead() { return (m_current_stamina == 0); };
     static bool IsPrismaDead(Prisma* prisma) { return (prisma->GetCurrentStamina() == 0); };
@@ -35,6 +39,20 @@ public:
     void AddNonVolatileStatus(PrismaNonVolatileStatus _status);
     void RemoveNonVolatileStatus(PrismaNonVolatileStatus _status);
     bool HasNonVolatileStatus(PrismaNonVolatileStatus _status);
+    uint32 GetNonVolatileStatusFlags() { return m_status_non_volatile_flags; };
+    void SetNonVolatileStatusFlags(uint32 flags) { m_status_non_volatile_flags = flags; };
+
+    void AddVolatileStatus(PrismaVolatileStatus _status);
+    void RemoveVolatileStatus(PrismaVolatileStatus _status);
+    bool HasVolatileStatus(PrismaVolatileStatus _status);
+    uint32 GetVolatileStatusFlags() { return m_status_volatile_flags; };
+    void SetVolatileStatusFlags(uint32 flags) { m_status_volatile_flags = flags; };
+
+    void AddVolatileCombatStatus(PrismaVolatileCombatStatus _status);
+    void RemoveVolatileCombatStatus(PrismaVolatileCombatStatus _status);
+    bool HasVolatileCombatStatus(PrismaVolatileCombatStatus _status);
+    uint32 GetVolatileCombatStatusFlags() { return m_status_volatile_combat_flags; };
+    void SetVolatileCombatStatusFlags(uint32 flags) { m_status_volatile_combat_flags = flags; };
 
     static bool HasPrisma(Player* player);
     static uint32 GenerateGUID();
@@ -57,10 +75,18 @@ public:
     PrismaGenders const GetGender() { return _gender.GetGender(); };
     std::string const GetGenderName() { return _gender.GetGenderName(); };
 
+    void InitializeTurnInformation();
+    void SetMoveFailed() { m_turn_failed = true; };
+    bool MoveFailed() { return m_turn_failed; };
+    void SetMoveCritical() { m_turn_critical = true; };
+    bool MoveCritical() { return m_turn_critical; };
+    void SetMoveSpeed(uint32 _speed) { m_turn_speed = _speed; };
+    uint32 MoveSpeed() { return m_turn_speed; };
+
     static float GetMoveCoefficient(PrismaTypes attack, PrismaTypes target_type);
     static float GetMoveCoefficient(PrismaTypes attack, PrismaTypes target_type1, PrismaTypes target_type2);
 
-    static int GetRequiredExperienceForNextLevel(int level, PrismaExperienceTypes Type);
+    static uint32 GetRequiredExperienceForNextLevel(int level, PrismaExperienceTypes Type);
     static int GetGainExperience(Prisma* self, Prisma* killed, bool against_trainer, bool use_multi_exp, int number_prisma_during_combat, float other_multiplicator);
 
     uint32 GetPrismaGUID() { return m_guid; };
@@ -71,6 +97,8 @@ public:
     PrismaStatistique GetCalculatedStat() { return _calculatedStat; };
     PrismaStatistique GetCurrentStat() { return _currentStat; };
     PrismaMoveSet GetPrismaMoveSet() { return _move; };
+
+    void UseMove(uint32 id);
 
     static std::vector<std::string> SplitData(const std::string& data, const std::string& delimiter, bool add);
 
@@ -83,9 +111,19 @@ private:
     uint32 m_level;
     uint32 m_current_stamina;
 
+    /* personnal turn information */
+    uint32 m_turn_speed;
+    bool m_turn_failed;
+    bool m_turn_critical;
+
     uint32 m_status_non_volatile_flags;
+    int32 m_turn_non_volatile;
+
     uint32 m_status_volatile_flags;
+    int32 m_turn_volatile;
+
     uint32 m_status_volatile_combat_flags;
+    int32 m_turn_volatile_combat;
 
     PrismaIndividualValue _iv;
     PrismaEffortValue _ev;
@@ -167,6 +205,10 @@ struct PrismaUnitTurnData
         enemies = _enemies;
     }
 
+    uint32 FinalSpeed()
+    {
+        return (speed + (speed_priority * 1000));
+    }
 };
 
 struct PrismaTurnData
@@ -189,6 +231,18 @@ struct PrismaTurnData
         uint32 calculated_a = a.speed + (a.speed_priority * 1000);
         uint32 calculated_b = b.speed + (b.speed_priority * 1000);
 
+        if (a.self->HasNonVolatileStatus(PrismaNonVolatileStatus::PARALYSIS))
+            calculated_a /= 2;
+
+        if (b.self->HasNonVolatileStatus(PrismaNonVolatileStatus::PARALYSIS))
+            calculated_b /= 2;
+
         return calculated_a >= calculated_b;
     }
+};
+
+struct PrismaTurnInformation
+{
+    PrismaTurnInformations next;
+    std::vector<Prisma*> targets;
 };
