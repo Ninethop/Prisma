@@ -684,7 +684,7 @@ void ObjectMgr::LoadPrismaTemplates()
         LoadPrismaTemplate(fields);
     } while (result->NextRow());
 
-    TC_LOG_INFO("server.loading", ">> Loaded " SZFMTD " prisma definitions in %u ms", _prismaTemplateStore.size(), GetMSTimeDiffToNow(oldMSTime));
+    TC_LOG_INFO("server.loading", ">> Loaded " SZFMTD " prisma template in %u ms", _prismaTemplateStore.size(), GetMSTimeDiffToNow(oldMSTime));
 }
 
 void ObjectMgr::LoadPrismaTemplate(Field* fields)
@@ -888,7 +888,9 @@ void ObjectMgr::LoadPrismaMoveTemplates()
         LoadPrismaMoveTemplate(fields);
     } while (result->NextRow());
 
-    TC_LOG_INFO("server.loading", ">> Loaded " SZFMTD " prisma definitions in %u ms", _prismaMoveTemplateStore.size(), GetMSTimeDiffToNow(oldMSTime));
+    TC_LOG_INFO("server.loading", ">> Loaded " SZFMTD " prisma move template in %u ms", _prismaMoveTemplateStore.size(), GetMSTimeDiffToNow(oldMSTime));
+
+    LoadPrismaMoveStatusConditions();
 }
 
 void ObjectMgr::LoadPrismaMoveTemplate(Field* fields)
@@ -914,12 +916,122 @@ void ObjectMgr::LoadPrismaMoveTemplate(Field* fields)
     prismaMove.BasePower = fields[6].GetUInt32();
     prismaMove.Accuracy = fields[7].GetUInt32();
     prismaMove.CritRate = fields[8].GetFloat();
-    prismaMove.SpeedPriority = fields[9].GetBool();
+    prismaMove.SpeedPriority = fields[9].GetInt32();
 
     uint32 _selection = fields[10].GetUInt32();
     if (_selection >= NUM_MAX_MOVE_SELECTION_TYPE)
         _selection = 0;
     prismaMove.SelectionType = PrismaMoveSelectionTypes(_selection);
+
+    prismaMove.NonVolatileStatusFlags = 0;
+    prismaMove.ProbabilityNVSF = 0.f;
+    prismaMove.VolatileStatusFlags = 0;
+    prismaMove.ProbabilityVSF = 0.f;
+    prismaMove.VolatileCombatStatusFlags = 0;
+    prismaMove.ProbabilityVCSF = 0.f;
+}
+
+void ObjectMgr::LoadPrismaMoveStatusConditions()
+{
+    uint32 oldMSTime = getMSTime();
+
+    QueryResult result = PrismaDatabase.Query(
+        // 0
+        "SELECT MoveID,"
+        // 1
+        "NonVolatileStatus,"
+        // 2
+        "Probability_NVS,"
+        // 3
+        "VolatileStatus,"
+        // 4
+        "Probability_VS,"
+        // 5
+        "VolatileCombatStatus,"
+        // 6
+        "Probability_VCS"
+        " FROM prisma_move_status_condition");
+
+    if (!result)
+    {
+        TC_LOG_INFO("server.loading", ">> Loaded 0 prisma move status conditions. DB table `prisma_move_status_condition` is empty.");
+        return;
+    }
+
+    uint32 count = 0;
+    do
+    {
+        Field* fields = result->Fetch();
+        LoadPrismaMoveStatusCondition(fields);
+        count++;
+    } while (result->NextRow());
+
+    TC_LOG_INFO("server.loading", ">> Loaded %u prisma move status condition in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
+}
+
+void ObjectMgr::LoadPrismaMoveStatusCondition(Field* fields)
+{
+    uint32 entry = fields[0].GetUInt32();
+    PrismaMoveTemplate& prismaMove = _prismaMoveTemplateStore[entry];
+
+    prismaMove.NonVolatileStatusFlags = fields[1].GetUInt32();
+    prismaMove.ProbabilityNVSF = fields[2].GetFloat();
+    prismaMove.VolatileStatusFlags = fields[3].GetUInt32();
+    prismaMove.ProbabilityVSF = fields[4].GetFloat();
+    prismaMove.VolatileCombatStatusFlags = fields[5].GetUInt32();
+    prismaMove.ProbabilityVCSF = fields[6].GetFloat();
+}
+
+void ObjectMgr::LoadPrismaMoveSets()
+{
+    uint32 oldMSTime = getMSTime();
+
+    QueryResult result = PrismaDatabase.Query(
+        // 0
+        "SELECT PrismaID,"
+        // 1
+        "Level,"
+        // 2
+        "MoveID,"
+        // 3
+        "OnEvolve"
+        " FROM prisma_move_set");
+
+    if (!result)
+    {
+        TC_LOG_INFO("server.loading", ">> Loaded 0 prisma move set definitions. DB table `prisma_move_set` is empty.");
+        return;
+    }
+
+    _prismaMoveSetStore.reserve(result->GetRowCount());
+    _prismaMoveSetOnEvolveStore.reserve(result->GetRowCount());
+    uint32 count = 0;
+    do
+    {
+        Field* fields = result->Fetch();
+        LoadPrismaMoveSet(fields);
+        count++;
+    } while (result->NextRow());
+
+    TC_LOG_INFO("server.loading", ">> Loaded %u prisma move set in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
+}
+
+void ObjectMgr::LoadPrismaMoveSet(Field* fields)
+{
+    uint32 prisma_id = fields[0].GetUInt32();
+    uint32 level = fields[1].GetUInt32();
+    uint32 move_id = fields[2].GetUInt32();
+    bool on_evolve = fields[3].GetBool();
+
+    std::unordered_map<uint32, std::vector<uint32>>& move_set = _prismaMoveSetStore[prisma_id];
+    std::vector<uint32>& specific_move_set = move_set[level];
+    specific_move_set.push_back(move_id);
+
+    if (on_evolve)
+    {
+        std::vector<uint32>& specific_move_set_on_evolve = _prismaMoveSetOnEvolveStore[prisma_id];
+        specific_move_set_on_evolve.push_back(move_id);
+    }
 }
 
 uint32 ObjectMgr::GeneratePrismaGuid()
@@ -946,9 +1058,9 @@ void ObjectMgr::PopulateCreatureFromPrisma()
     }        
 
     int count = 0;
-    WorldDatabasePreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_REP_PRISMA_TEMPLATE);
     for (auto prisma : _prismaTemplateStore)
     {
+        WorldDatabasePreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_REP_PRISMA_TEMPLATE);
         stmt->setUInt32(0, PRISMA_TEMPLATE_RESERVED_MIN + prisma.second.Entry);
         stmt->setUInt32(1, prisma.second.DisplayID);
         stmt->setString(2, prisma.second.Name);
@@ -10591,6 +10703,25 @@ PrismaData const* ObjectMgr::GetPrismaData(uint32 guid) const
 PrismaMoveTemplate const* ObjectMgr::GetPrismaMoveTemplate(uint32 id) const
 {
     return Trinity::Containers::MapGetValuePtr(_prismaMoveTemplateStore, id);
+}
+
+std::unordered_map<uint32, std::vector<uint32>> const* ObjectMgr::GetPrismaMoveSet(uint32 entry) const
+{
+    return Trinity::Containers::MapGetValuePtr(_prismaMoveSetStore, entry);
+}
+
+std::vector<uint32> const* ObjectMgr::GetPrismaMoveSet(uint32 entry, uint32 level) const
+{
+    auto _storage = GetPrismaMoveSet(entry);
+    if (!_storage)
+        return nullptr;
+
+    return Trinity::Containers::MapGetValuePtr(*_storage, level);
+}
+
+std::vector<uint32> const* ObjectMgr::GetPrismaMoveSetOnEvolve(uint32 entry) const
+{
+    return Trinity::Containers::MapGetValuePtr(_prismaMoveSetOnEvolveStore, entry);
 }
 
 QuestPOIWrapper const* ObjectMgr::GetQuestPOIWrapper(uint32 questId) const

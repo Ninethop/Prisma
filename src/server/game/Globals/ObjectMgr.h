@@ -543,6 +543,8 @@ typedef std::unordered_map<uint32, CreatureTemplate> CreatureTemplateContainer;
 typedef std::unordered_map<uint32, PrismaTemplate> PrismaTemplateContainer;
 typedef std::unordered_map<uint32, PrismaData> PrismaDataContainer;
 typedef std::unordered_map<uint32, PrismaMoveTemplate> PrismaMoveTemplateContainer;
+typedef std::unordered_map<uint32, std::unordered_map<uint32, std::vector<uint32>>> PrismaMoveSetContainer;
+typedef std::unordered_map<uint32, std::vector<uint32>> PrismaMoveSetOnEvolveContainer;
 typedef std::unordered_map<uint32, CreatureAddon> CreatureTemplateAddonContainer;
 typedef std::unordered_map<ObjectGuid::LowType, CreatureData> CreatureDataContainer;
 typedef std::unordered_map<ObjectGuid::LowType, CreatureAddon> CreatureAddonContainer;
@@ -981,8 +983,6 @@ class TC_GAME_API ObjectMgr
         void LoadGameObjectTemplateAddons();
         void LoadGameObjectOverrides();
 
-        CreatureTemplate const* GetCreatureTemplate(uint32 entry) const;
-        CreatureTemplateContainer const& GetCreatureTemplates() const { return _creatureTemplateStore; }
         PrismaTemplate const* GetPrismaTemplate(uint32 entry) const;
         PrismaTemplateContainer const& GetPrismaTemplates() const { return _prismaTemplateStore; }
         PrismaData const* GetPrismaData(uint32 guid) const;
@@ -991,6 +991,14 @@ class TC_GAME_API ObjectMgr
         static uint32 GeneratePrismaGuid();
         PrismaMoveTemplate const* GetPrismaMoveTemplate(uint32 id) const;
         PrismaMoveTemplateContainer const& GetPrismaMoveTemplates() const { return _prismaMoveTemplateStore; }
+        std::unordered_map<uint32, std::vector<uint32>> const* GetPrismaMoveSet(uint32 entry) const;
+        std::vector<uint32> const* GetPrismaMoveSet(uint32 entry, uint32 level) const;
+        PrismaMoveSetContainer const& GetPrismaMoveSets() const { return _prismaMoveSetStore; };
+        std::vector<uint32> const* GetPrismaMoveSetOnEvolve(uint32 entry) const;
+        PrismaMoveSetOnEvolveContainer const& GetPrismaMoveSetOnEvolves() const { return _prismaMoveSetOnEvolveStore; };
+
+        CreatureTemplate const* GetCreatureTemplate(uint32 entry) const;
+        CreatureTemplateContainer const& GetCreatureTemplates() const { return _creatureTemplateStore; }
         CreatureModelInfo const* GetCreatureModelInfo(uint32 modelId) const;
         CreatureModelInfo const* GetCreatureModelRandomGender(uint32* displayID) const;
         static uint32 ChooseDisplayId(CreatureTemplate const* cinfo, CreatureData const* data = nullptr);
@@ -1168,6 +1176,8 @@ class TC_GAME_API ObjectMgr
         void LoadPrismaTemplates();
         void LoadPrismaDatas();
         void LoadPrismaMoveTemplates();
+        void LoadPrismaMoveStatusConditions();
+        void LoadPrismaMoveSets();
         void PopulateCreatureFromPrisma();
         void LoadCreatureTemplates();
         void LoadCreatureTemplateAddons();
@@ -1175,6 +1185,8 @@ class TC_GAME_API ObjectMgr
         void LoadPrismaTemplate(Field* fields);
         void LoadPrismaData(Field* fields);
         void LoadPrismaMoveTemplate(Field* fields);
+        void LoadPrismaMoveStatusCondition(Field* fields);
+        void LoadPrismaMoveSet(Field* fields);
         void LoadCreatureTemplateResistances();
         void LoadCreatureTemplateSpells();
         void CheckCreatureTemplate(CreatureTemplate const* cInfo);
@@ -1704,12 +1716,15 @@ class TC_GAME_API ObjectMgr
         typedef std::unordered_map<uint32, ItemSetNameEntry> ItemSetNameContainer;
         ItemSetNameContainer _itemSetNameStore;
 
-        MapObjectGuids _mapObjectGuidsStore;
-        CreatureDataContainer _creatureDataStore;
-        CreatureTemplateContainer _creatureTemplateStore;
         PrismaTemplateContainer _prismaTemplateStore;
         PrismaDataContainer _prismaDataStore;
         PrismaMoveTemplateContainer _prismaMoveTemplateStore;
+        PrismaMoveSetContainer _prismaMoveSetStore;
+        PrismaMoveSetOnEvolveContainer _prismaMoveSetOnEvolveStore;
+
+        MapObjectGuids _mapObjectGuidsStore;
+        CreatureDataContainer _creatureDataStore;
+        CreatureTemplateContainer _creatureTemplateStore;
         CreatureModelContainer _creatureModelStore;
         CreatureAddonContainer _creatureAddonStore;
         CreatureTemplateAddonContainer _creatureTemplateAddonStore;
