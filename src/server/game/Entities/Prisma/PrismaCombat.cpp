@@ -8,6 +8,7 @@ PrismaCombat::PrismaCombat(Player* _player, Prisma* _prisma)
 {
     target_prisma->SetPrismaLevel(irand(3, 8)); // always before
     target_prisma->InitializePrisma();
+    AddEnemyToFields(target_prisma);
 
     // if the player doesn't have any prisma, we need to stop the combat
     if (!Prisma::HasPrisma(player))
@@ -23,12 +24,13 @@ PrismaCombat::PrismaCombat(Player* _player, Prisma* _prisma)
         return;
     }
 
+    AddFriendToFields(prisma);
+
     pivot = CalculatePivotPoint(player, target_prisma);
     camp = GenerateCombatCamp(COMBAT_RANGE_FROM_PIVOT);
     player_pos = GeneratePositionFromPivot(angle.player + RAND_OFFSET_WILD_MASTER, COMBAT_RANGE_MASTER_FROM_PIVOT);
 
-    player->SendPrismaData("PRISMA", "ShowPrisma"); // used for display UI
-
+    ShowPrismaUI(player);
     SendPrismaUIInformation();
     SendPrismaMoveSetInformation();
 
@@ -37,7 +39,7 @@ PrismaCombat::PrismaCombat(Player* _player, Prisma* _prisma)
     MoveUnitToCombat(prisma, camp.player, camp.target);
 }
 
-void PrismaCombat::DealDamage(Unit* who, uint32 move_index, uint8 target_index)
+void PrismaCombat::UseMove(Unit* who, uint32 move_index, uint8 selection_index)
 {
     // this 3 are always needed
     if (!player || !prisma || !target_prisma)
@@ -46,22 +48,23 @@ void PrismaCombat::DealDamage(Unit* who, uint32 move_index, uint8 target_index)
     // player deal damage to target_prisma
     if (who->GetGUID() == player->GetGUID())
     {
-        PrismaMoveSet* move_set = prisma->GetPrismaMoveSet();
-        int32 move_id = *(move_set->GetMovesID() + move_index);
-        uint32 move_pp = *(move_set->GetMovesPP() + move_index);
+        PrismaMoveSet move_set = prisma->GetPrismaMoveSet();
+        int32 move_id = *(move_set.GetMovesID() + move_index);
+        uint32 move_pp = *(move_set.GetMovesPP() + move_index);
 
         // move id not exist or move doesn't have enough pp
         if (move_id <= 0 || move_pp == 0)
             return;
 
-        if (!move_set->UseMove(move_index))
+        // if player have shoot a bad move, but can choose a good one
+        // , then he need to choose again
+        if (!move_set.CanUseMove(move_index) && move_set.CanUseMoves())
             return;
 
         // player turn
         PrismaUnitTurnData player_turn;
-        player_turn.Initialize();
-        player_turn.SetDamage(target_prisma, Prisma::CalculateDamage(prisma, target_prisma, move_id, weather, false));
-        player_turn.SetSpeed(prisma->GetCalculatedStat().speed, Prisma::MoveUseSpeedPriority(move_id));
+        player_turn.Initialize(prisma, true, move_id, selection_index, friend_fields, enemy_fields);
+        prisma->InitializeTurnInformation();
         player_turn.played = true;
 
         turn_data.data.push_back(player_turn);
@@ -70,10 +73,8 @@ void PrismaCombat::DealDamage(Unit* who, uint32 move_index, uint8 target_index)
         if (combat_type == PrismaCombatTypes::WILD)
         {
             PrismaUnitTurnData target_turn;
-            target_turn.Initialize();
-            target_turn.speed = target_prisma->GetCalculatedStat().speed;
-            //uint32 move_id = Prisma::GetRandomMove(target_prisma);
-            //DealDamage(target_prisma, move_id, 0);
+            target_turn.Initialize(target_prisma, false, target_prisma->GetPrismaMoveSet().GetRandomMoveId(), 0, enemy_fields, friend_fields);
+            target_prisma->InitializeTurnInformation();
             target_turn.played = true;
 
             turn_data.data.push_back(target_turn);
@@ -105,32 +106,74 @@ void PrismaCombat::SendTurn()
     if (!turn_data.CanPlayTurn())
         return;
 
+    // sort all prisma turn by speed
     std::sort(turn_data.data.begin(), turn_data.data.end(), PrismaTurnData::SortBySpeed);
+
     if (combat_type == PrismaCombatTypes::WILD)
     {
-        PrismaTurnInformations _info = PrismaTurnInformations::AGAIN;
+        //PrismaTurnInformations _info = PrismaTurnInformations::AGAIN;
+        PrismaTurnInformation _info = { PrismaTurnInformations::AGAIN, std::vector<Prisma*>() };
 
-        for (PrismaUnitTurnData& turn : turn_data.data)
+        for (PrismaUnitTurnData& _turn : turn_data.data)
         {
-            if (turn.damage > 0 && turn.damage_target)
+            // this is used for Client information
+            _turn.self->SetMoveSpeed(_turn.FinalSpeed());
+
+            // this happen when a prisma is dead before he can attack, and when the combat
+            // isn't stopped because there are another prisma alive in the team
+            if (_turn.self->IsPrismaDead())
+                continue;
+
+            _info.targets.clear();
+
+            const PrismaMoveTemplate* _move = sObjectMgr->GetPrismaMoveTemplate(_turn.move_id);
+            if (!_move)
             {
-                turn.damage_target->ApplyDamage(turn.damage);
+                const PrismaMoveTemplate _secure_move_ = { 165, 0, "Struggle", PrismaTypes::NORMAL, PrismaMoveCategories::PHYSICAL,
+                1, 50, 100, 0.f, 0, PrismaMoveSelectionTypes::RANDOM_TARGET };
 
-                // if target is dead, then stop combat
-                if (turn.damage_target->IsPrismaDead())
-                {
-                    if (turn.damage_target == target_prisma)
-                        _info = PrismaTurnInformations::WIN;
-
-                    if (turn.damage_target == prisma)
-                        _info = PrismaTurnInformations::LOOSE;
-
-                    break;
-                }
+                ApplyMoveOnRandomTarget(&_info, _turn, &_secure_move_);
+                continue;
             }
+
+            // remove 1 pp
+            _turn.self->UseMove(_turn.move_id);
+
+            // DEBUUUUG
+            _turn.self->GetPrismaMoveSet().Debug(_turn.self->GetName(), _turn.self->GetPrismaGUID());
+
+            // Need to store in PrismaTurnInfo, the move as failed
+            uint32 rand_accuracy = urand(0, 100);
+            if (rand_accuracy > _move->Accuracy)
+            {
+                _turn.self->SetMoveFailed();
+                continue;
+            }
+
+            TC_LOG_INFO("prisma", "%s use %s (%u)", _turn.self->GetName(), _move->Name, _move->Entry);
+
+            switch (_move->SelectionType)
+            {
+            case PrismaMoveSelectionTypes::SELECTED_TARGET:
+                ApplyMoveOnSelectedTarget(&_info, _turn, _move);
+                break;
+            case PrismaMoveSelectionTypes::RANDOM_TARGET:
+                ApplyMoveOnRandomTarget(&_info, _turn, _move);
+                break;
+            case PrismaMoveSelectionTypes::ALL_TARGET:
+                ApplyMoveOnAllTarget(&_info, _turn, _move);
+                break;
+            default:
+                break;
+            }
+
+            ApplyNonVolatileStatusFlags(&_info, _turn, _move);
+
+            if (_info.next == PrismaTurnInformations::WIN || _info.next == PrismaTurnInformations::LOOSE)
+                break;
         }
 
-        SendPrismaTurnInformation(_info);
+        SendPrismaTurnInformation(_info.next);
         turn_data.Reset();
         return;
     }
@@ -138,10 +181,236 @@ void PrismaCombat::SendTurn()
     turn_data.Reset();
 }
 
+/*****************************
+        SELECTED TARGET
+*****************************/
+void PrismaCombat::ApplyMoveOnSelectedTarget(PrismaTurnInformation* _info, PrismaUnitTurnData& _turn, const PrismaMoveTemplate* _move)
+{
+    if (_turn.enemies.size() == 0)
+        return;
+
+    if (_turn.selection >= _turn.enemies.size())
+        _turn.selection = 0;
+
+    auto _target = _turn.enemies[_turn.selection];
+    _info->targets.push_back(_target);
+
+    if (IsSpecificMove<SPECIFIC_MOVE_SELECTED_TARGET>(_move, SpecificMoveSelectedTarget))
+    {
+        ApplySpecificMoveOnSelectedTarget(_info, _turn, _move, _target);
+        return;
+    }
+
+    uint32 damage = Prisma::CalculateDamage(_turn.self, _target, _turn.move_id, weather, false);
+    _target->ApplyDamage(damage);
+
+    if (_target->IsPrismaDead())
+        _turn.is_friend ? _info->next = PrismaTurnInformations::WIN : _info->next = PrismaTurnInformations::LOOSE;
+}
+
+void PrismaCombat::ApplySpecificMoveOnSelectedTarget(PrismaTurnInformation* _info, PrismaUnitTurnData& _turn, const PrismaMoveTemplate* _move, Prisma* _target)
+{
+
+}
+
+/****************************
+        RANDOM TARGET
+*****************************/
+void PrismaCombat::ApplyMoveOnRandomTarget(PrismaTurnInformation* _info, PrismaUnitTurnData& _turn, const PrismaMoveTemplate* _move)
+{
+    if (_turn.enemies.size() == 0)
+        return;
+
+    uint32 rand = urand(0, _turn.enemies.size() - 1);
+    auto _target = _turn.enemies[rand];
+    _info->targets.push_back(_target);
+
+    if (IsSpecificMove<SPECIFIC_MOVE_RANDOM_TARGET>(_move, SpecificMoveRandomTarget))
+    {
+        ApplySpecificMoveOnRandomTarget(_info, _turn, _move, _target);
+        return;
+    }
+
+    if (_turn.enemies.size() == 0)
+        return;
+
+}
+
+void PrismaCombat::ApplySpecificMoveOnRandomTarget(PrismaTurnInformation* _info, PrismaUnitTurnData& _turn, const PrismaMoveTemplate* _move, Prisma* _target)
+{
+    if (_move->Entry == 165)    // STRUGGLE
+    {
+        uint32 damage = Prisma::CalculateDamage(_turn.self, _target, _turn.move_id, weather, false);
+
+        _target->ApplyDamage(damage);
+        _turn.self->ApplyDamage((damage / 2));
+
+        if (_target->IsPrismaDead() && _turn.self->IsPrismaDead())
+        {
+            _info->next = PrismaTurnInformations::EQUALITY;
+        }
+        else if (_target->IsPrismaDead() && !_turn.self->IsPrismaDead())
+        {
+            if (_turn.is_friend) _info->next = PrismaTurnInformations::WIN;
+            else _info->next = PrismaTurnInformations::LOOSE;
+        }
+        else if (!_target->IsPrismaDead() && _turn.self->IsPrismaDead())
+        {
+            if (_turn.is_friend) _info->next = PrismaTurnInformations::LOOSE;
+            else _info->next = PrismaTurnInformations::WIN;
+        }
+        else
+        {
+            _info->next = PrismaTurnInformations::AGAIN;
+        }
+
+        return;
+    }
+}
+
+/****************************
+        ALL TARGETS
+*****************************/
+void PrismaCombat::ApplyMoveOnAllTarget(PrismaTurnInformation* _info, PrismaUnitTurnData& _turn, const PrismaMoveTemplate* _move)
+{
+    if (_turn.enemies.size() == 0)
+        return;
+
+    if (IsSpecificMove<SPECIFIC_MOVE_ALL_TARGET>(_move, SpecificMoveAllTarget))
+    {
+        ApplySpecificMoveOnAllTarget(_info, _turn, _move);
+        return;
+    }
+
+    for (auto target : _turn.enemies)
+    {
+        uint32 damage = Prisma::CalculateDamage(_turn.self, target, _turn.move_id, weather, false);
+        target->ApplyDamage(damage);
+
+        if (target->IsPrismaDead())
+        {
+            if (_turn.is_friend)
+            {
+                if (target->IsLast())
+                {
+                    _info->next = PrismaTurnInformations::WIN;
+                }
+            }
+            else
+            {
+                if (_turn.self->IsLast())
+                {
+                    _info->next = PrismaTurnInformations::LOOSE;
+                }
+            }
+        }
+    }
+}
+
+void PrismaCombat::ApplySpecificMoveOnAllTarget(PrismaTurnInformation* _info, PrismaUnitTurnData& _turn, const PrismaMoveTemplate* _move)
+{
+
+}
+
+/****************************
+     NON VOLATILE STATUS
+*****************************/
+void PrismaCombat::ApplyNonVolatileStatusFlags(PrismaTurnInformation* _info, PrismaUnitTurnData& _turn, const PrismaMoveTemplate* _move)
+{
+    if (_move->NonVolatileStatusFlags == 0 || _info->targets.size() == 0)
+        return;
+
+    // only take prisma who don't have any `non volatile status`
+    std::vector<Prisma*> status_targets;
+    for (auto _t : _info->targets)
+        if (_t->GetNonVolatileStatusFlags() == 0)
+            status_targets.push_back(_t);
+
+    if (status_targets.size() == 0)
+        return;
+
+    if (IsSpecificMove<SPECIFIC_MOVE_NON_VOLATILE_STATUS>(_move, SpecificMoveNonVolatileStatus))
+    {
+        ApplySpecificNonVolatileStatusFlags(_info, _turn, _move, status_targets);
+        return;
+    }
+
+    std::vector<PrismaNonVolatileStatus> status;
+    for (double i = double(PrismaNonVolatileStatus::BURN); i < double(PrismaNonVolatileStatus::SLEEP); ++i)
+        if ((_move->NonVolatileStatusFlags & uint32(std::pow(2.0, i))) != 0)
+            status.push_back(PrismaNonVolatileStatus(int(i)));
+
+    if (status.size() == 0)
+        return;
+
+    float rand = frand(0.f, 100.f);
+    if (rand < _move->ProbabilityNVSF)
+    {
+        PrismaNonVolatileStatus _status;
+
+        if (status.size() == 1)
+        {
+            _status = status[0];
+        }
+        else
+        {
+            uint32 random_status = urand(0, status.size() - 1);
+            _status = status[random_status];
+        }
+
+        for (auto target : status_targets)
+            target->AddNonVolatileStatus(_status);
+    }
+}
+
+void PrismaCombat::ApplySpecificNonVolatileStatusFlags(PrismaTurnInformation* _info, PrismaUnitTurnData& _turn, const PrismaMoveTemplate* _move, std::vector<Prisma*> _status_targets)
+{
+    if (_move->Entry == 161) // TRI ATTACK
+    {
+        for (int i = int(PrismaNonVolatileStatus::BURN); i < int(PrismaNonVolatileStatus::PARALYSIS); ++i)
+        {
+            float rand = frand(0.f, 100.f);
+            if (rand < _move->ProbabilityNVSF)
+            {
+                for (auto target : _status_targets)
+                    target->AddNonVolatileStatus(PrismaNonVolatileStatus(i));
+            }
+        }
+
+        return;
+    }
+
+    if (_move->Entry == 374) // FLING ...
+    {
+
+        return;
+    }
+
+    if (_move->Entry == 375) // PSYCHO SHIFT
+    {
+        if (_turn.self->GetNonVolatileStatusFlags() > 0)
+        {
+            for (auto target : _status_targets)
+            {
+                uint32 flags = target->GetNonVolatileStatusFlags();
+                flags |= _turn.self->GetNonVolatileStatusFlags();
+                target->SetNonVolatileStatusFlags(flags);
+            }
+        }
+
+        return;
+    }
+}
+
 void PrismaCombat::EndCombat()
 {
     if (prisma)
     {
+        if (prisma->IsPrismaDead())
+        {
+            // need to teleport player to health center
+        }
+
         prisma->SavePrismaToDB();
         ObjectGuid::LowType db_guid = prisma->GetSpawnId();
         Prisma::DeleteFromDB(db_guid);
@@ -172,10 +441,17 @@ void PrismaCombat::EndCombat()
     {
         if (target_prisma)
         {
-            target_prisma->KillSelf();
-            Corpse* target_prisma_corpse = target_prisma->ToCorpse();
-            if (target_prisma_corpse)
-                target_prisma_corpse->RemoveFromGrid();
+            if (target_prisma->IsPrismaDead())
+            {
+                target_prisma->KillSelf();
+                target_prisma->CleanupBeforeRemoveFromMap(true);
+            }
+            else
+            {
+                target_prisma->SetReactState(ReactStates::REACT_AGGRESSIVE);
+                target_prisma->ResumeMovement();
+                //delete target_prisma; // ???
+            }
         }
     }
 }
@@ -249,6 +525,26 @@ void PrismaCombat::MoveUnitToCombat(Unit* unit, Position loc, Position targetPos
     unit->GetMotionMaster()->MovePoint(0, loc, true, loc.GetRelativeAngle(targetPos));
 }
 
+/* Show prisma UI for player */
+bool PrismaCombat::ShowPrismaUI(Player* _p)
+{
+    if (!_p)
+        return false;
+
+    _p->SendPrismaData("PRISMA", "ShowPrisma");
+    return true;
+}
+
+/* Hide prisma UI for player */
+bool PrismaCombat::HidePrismaUI(Player* _p)
+{
+    if (!_p)
+        return false;
+
+    _p->SendPrismaData("PRISMA", "HidePrisma");
+    return true;
+}
+
 /* Show prisma information for player
 *   FUNC|FRIEND|ENEMY
 *   {data} : level , hp , total_hp , name (, cur_xp, total_xp)
@@ -287,14 +583,14 @@ bool PrismaCombat::SendPrismaUIInformation()
 
 /* Send move set information for player
 *   FUNC|MOVE0|MOVE1|MOVE2|MOVE3
-*   MOVE = id , name , total_pp, pp
+*   MOVE = index , name , total_pp , pp
 */
 bool PrismaCombat::SendPrismaMoveSetInformation()
 {
     if (!prisma || !player)
         return false;
 
-    PrismaMoveSet* _moveSet = prisma->GetPrismaMoveSet();
+    PrismaMoveSet _moveSet = prisma->GetPrismaMoveSet();
     const PrismaMoveTemplate* _moves[4];
 
     std::string data = "";
@@ -305,8 +601,8 @@ bool PrismaCombat::SendPrismaMoveSetInformation()
     //MOVE0 -> 4
     for (int i = 0; i < 4; ++i)
     {
-        int32* id = _moveSet->GetMovesID();
-        uint32* pp = _moveSet->GetMovesPP();
+        int32* id = _moveSet.GetMovesID();
+        uint32* pp = _moveSet.GetMovesPP();
 
         if (*(id + i) > 0)
         {
@@ -338,7 +634,7 @@ bool PrismaCombat::SendPrismaMoveSetInformation()
 
 /* Send information about the current turn to display correctly the UI
 *   FUNC|SUB_CALL|DATA1|DATA2
-*   AGAIN --> DATA = hp
+*   AGAIN --> DATA = hp, flag0, flag1, flag2, speed, failed, critical
 *   WIN   --> DATA = level, xp, total_xp
 */
 bool PrismaCombat::SendPrismaTurnInformation(PrismaTurnInformations info)
@@ -351,9 +647,27 @@ bool PrismaCombat::SendPrismaTurnInformation(PrismaTurnInformations info)
     if (info == PrismaTurnInformations::AGAIN)
     {
         data += "Update|";
-        data += std::to_string(prisma->GetCurrentStamina()) + "|";
-        data += std::to_string(target_prisma->GetCurrentStamina());
 
+        data += std::to_string(prisma->GetCurrentStamina()) + ",";
+        data += std::to_string(prisma->GetNonVolatileStatusFlags()) + ",";
+        data += std::to_string(prisma->GetVolatileStatusFlags()) + ",";
+        data += std::to_string(prisma->GetVolatileCombatStatusFlags()) + ",";
+        data += std::to_string(prisma->MoveSpeed()) + ",";
+        data += (prisma->MoveFailed() ? "1," : "0,");
+        data += (prisma->MoveCritical() ? "1" : "0");
+
+        //SEPARATOR
+        data += "|";
+
+        data += std::to_string(target_prisma->GetCurrentStamina()) + ",";
+        data += std::to_string(target_prisma->GetNonVolatileStatusFlags()) + ",";
+        data += std::to_string(target_prisma->GetVolatileStatusFlags()) + ",";
+        data += std::to_string(target_prisma->GetVolatileCombatStatusFlags()) + ",";
+        data += std::to_string(target_prisma->MoveSpeed()) + ",";
+        data += (target_prisma->MoveFailed() ? "1," : "0,");
+        data += (target_prisma->MoveCritical() ? "1" : "0");
+
+        TC_LOG_INFO("prisma", data);
         player->SendPrismaData("PRISMA", data);
         return true;
     }
@@ -365,6 +679,14 @@ bool PrismaCombat::SendPrismaTurnInformation(PrismaTurnInformations info)
 
         player->SendPrismaData("PRISMA", data);
         prisma->ApplyExperience(Prisma::GetGainExperience(prisma, target_prisma, false, false, 1, 1.f));
+        EndCombat();
+        return true;
+    }
+
+    if (info == PrismaTurnInformations::LOOSE)
+    {
+        data += "Loose";
+        player->SendPrismaData("PRISMA", data);
         EndCombat();
         return true;
     }
