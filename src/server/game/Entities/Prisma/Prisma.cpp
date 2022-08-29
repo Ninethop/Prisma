@@ -386,7 +386,7 @@ void Prisma::SavePrismaToDB()
     data.PP_Move0 = _move.pp_move0;
     data.Move1 = _move.move1;
     data.PP_Move1 = _move.pp_move1;
-    data.Move2 = _move.pp_move2;
+    data.Move2 = _move.move2;
     data.PP_Move2 = _move.pp_move2;
     data.Move3 = _move.move3;
     data.PP_Move3 = _move.pp_move3;
