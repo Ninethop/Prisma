@@ -8,6 +8,8 @@ PrismaCombat::PrismaCombat(Player* _player, Prisma* _prisma)
 {
     target_prisma->SetPrismaLevel(irand(3, 8)); // always before
     target_prisma->InitializePrisma();
+
+    // Add enemy prisma monster to fields vector ( for combat use )
     AddEnemyToFields(target_prisma);
 
     // if the player doesn't have any prisma, we need to stop the combat
@@ -24,16 +26,24 @@ PrismaCombat::PrismaCombat(Player* _player, Prisma* _prisma)
         return;
     }
 
+    // Add friend prisma monster to fields vector ( for combat use )
     AddFriendToFields(prisma);
 
+    // generate center of the scene
     pivot = CalculatePivotPoint(player, target_prisma);
+    // generate camp position, with a random angle for player camp
+    // and the invert for the enemy camp, prisma monster are moved exactly
+    // where camp player & enemy are generated
     camp = GenerateCombatCamp(COMBAT_RANGE_FROM_PIVOT);
+    // generate the player position, near to the camp player position ( near prisma monster )
     player_pos = GeneratePositionFromPivot(angle.player + RAND_OFFSET_WILD_MASTER, COMBAT_RANGE_MASTER_FROM_PIVOT);
 
+    // Send UI information
     ShowPrismaUI(player);
     SendPrismaUIInformation();
     SendPrismaMoveSetInformation();
 
+    // Move all the unit to the generated position
     MoveUnitToCombat(player, player_pos, camp.target);
     MoveUnitToCombat(target_prisma, camp.target, camp.player);
     MoveUnitToCombat(prisma, camp.player, camp.target);
@@ -139,9 +149,6 @@ void PrismaCombat::SendTurn()
             // remove 1 pp
             _turn.self->UseMove(_turn.move_id);
 
-            // DEBUUUUG
-            _turn.self->GetPrismaMoveSet().Debug(_turn.self->GetName(), _turn.self->GetPrismaGUID());
-
             // Need to store in PrismaTurnInfo, the move as failed
             uint32 rand_accuracy = urand(0, 100);
             if (rand_accuracy > _move->Accuracy)
@@ -150,7 +157,7 @@ void PrismaCombat::SendTurn()
                 continue;
             }
 
-            TC_LOG_INFO("prisma", "%s use %s (%u)", _turn.self->GetName(), _move->Name, _move->Entry);
+            TC_LOG_INFO("prisma", "PrimaCombat Log >> %s use %s (%u)", _turn.self->GetName(), _move->Name, _move->Entry);
 
             switch (_move->SelectionType)
             {
@@ -412,10 +419,7 @@ void PrismaCombat::EndCombat()
         }
 
         prisma->SavePrismaToDB();
-        ObjectGuid::LowType db_guid = prisma->GetSpawnId();
-        Prisma::DeleteFromDB(db_guid);
-        prisma->CleanupsBeforeDelete();
-        delete prisma;
+        prisma->DespawnOrUnsummon(Milliseconds(0));
     }
 
     if (player)
@@ -431,10 +435,7 @@ void PrismaCombat::EndCombat()
         if (target_prisma)
         {
             target_prisma->SavePrismaToDB();
-            ObjectGuid::LowType db_guid = target_prisma->GetSpawnId();
-            Prisma::DeleteFromDB(db_guid);
-            target_prisma->CleanupsBeforeDelete();
-            delete target_prisma;
+            target_prisma->DespawnOrUnsummon(Milliseconds(0));
         }
     }
     else // is wild
@@ -444,7 +445,7 @@ void PrismaCombat::EndCombat()
             if (target_prisma->IsPrismaDead())
             {
                 target_prisma->KillSelf();
-                target_prisma->CleanupBeforeRemoveFromMap(true);
+                //target_prisma->CleanupBeforeRemoveFromMap(true);
             }
             else
             {
@@ -474,10 +475,13 @@ Position PrismaCombat::CalculatePivotPoint(Unit* unit1, Unit* unit2)
 CombatCampPosition PrismaCombat::GenerateCombatCamp(float distance)
 {
     CombatCampPosition _camp;
-    int count = 0;
-    while (true)
+
+    angle.Initialize();
+    for (double delta = 0; delta < M_PI; delta += 0.2)
     {
-        angle.Initialize();
+        angle.player += float(delta);
+        angle.target += float(delta);
+
         float px = pivot.GetPositionX() + (distance * cos(angle.player));
         float py = pivot.GetPositionY() + (distance * sin(angle.player));
         _camp.player = { px, py, map->GetGridHeight(px,py) };
@@ -489,14 +493,12 @@ CombatCampPosition PrismaCombat::GenerateCombatCamp(float distance)
         if (map->isInLineOfSight(
             _camp.player.GetPositionX(), _camp.player.GetPositionY(), _camp.player.GetPositionZ(),
             _camp.target.GetPositionX(), _camp.target.GetPositionY(), _camp.target.GetPositionZ(),
-            0, LineOfSightChecks::LINEOFSIGHT_ALL_CHECKS, VMAP::ModelIgnoreFlags::Nothing) ||
-            count > MAX_ITERATION_ON_ENTER_COMBAT) // avoid freeze
+            0, LineOfSightChecks::LINEOFSIGHT_ALL_CHECKS, VMAP::ModelIgnoreFlags::Nothing))
         {
             break;
         }
-
-        count++;
     }
+
     return _camp;
 }
 
@@ -531,7 +533,10 @@ bool PrismaCombat::ShowPrismaUI(Player* _p)
     if (!_p)
         return false;
 
-    _p->SendPrismaData("PRISMA", "ShowPrisma");
+    PrismaMessageData message;
+    message << "ShowPrisma";
+
+    _p->SendPrismaData(message);
     return true;
 }
 
@@ -541,7 +546,10 @@ bool PrismaCombat::HidePrismaUI(Player* _p)
     if (!_p)
         return false;
 
-    _p->SendPrismaData("PRISMA", "HidePrisma");
+    PrismaMessageData message;
+    message << "HidePrisma";
+
+    _p->SendPrismaData(message);
     return true;
 }
 
@@ -554,36 +562,34 @@ bool PrismaCombat::SendPrismaUIInformation()
     if (!target_prisma || !prisma || !player)
         return false;
 
-    std::string data = "";
-
-    //FUNCTION
-    data += "Wild|";
+    PrismaMessageData message;
+    message << "Wild" << ";";
 
     //FRIEND
-    data += std::to_string(prisma->GetPrismaLevel()) + ",";
-    data += std::to_string(prisma->GetCurrentStamina()) + ",";
-    data += std::to_string(prisma->GetCalculatedStat().stamina) + ",";
-    data += prisma->GetName() + ",";
-    data += std::to_string(prisma->GetPrismaExperience()) + ",";
-    data += std::to_string(Prisma::GetRequiredExperienceForNextLevel(prisma->GetPrismaLevel(), PrismaExperienceTypes::MEDIUM_FAST));
+    message << prisma->GetPrismaLevel() << ",";
+    message << prisma->GetCurrentStamina() << ",";
+    message << prisma->GetCalculatedStat().stamina << ",";
+    message << prisma->GetName() << ",";
+    message << prisma->GetPrismaExperience() << ",";
+    message << Prisma::GetRequiredExperienceForNextLevel(prisma->GetPrismaLevel(), PrismaExperienceTypes::MEDIUM_FAST);
 
     //SEPARATOR
-    data += "|";
+    message << ";";
 
     //ENEMY
     uint32 target_hp = target_prisma->GetCalculatedStat().stamina;
-    data += std::to_string(target_prisma->GetPrismaLevel()) + ",";
-    data += std::to_string(target_hp) + ",";    // on wild, target have maximum hp at initialisation
-    data += std::to_string(target_hp) + ",";
-    data += target_prisma->GetName();
+    message << target_prisma->GetPrismaLevel() << ",";
+    message << target_hp << ",";
+    message << target_hp << ",";
+    message << target_prisma->GetName();
 
-    player->SendPrismaData("PRISMA", data);
+    player->SendPrismaData(message);
     return true;
 }
 
 /* Send move set information for player
 *   FUNC|MOVE0|MOVE1|MOVE2|MOVE3
-*   MOVE = index , name , total_pp , pp
+*   MOVE = index , name , total_pp , pp, type
 */
 bool PrismaCombat::SendPrismaMoveSetInformation()
 {
@@ -593,10 +599,8 @@ bool PrismaCombat::SendPrismaMoveSetInformation()
     PrismaMoveSet _moveSet = prisma->GetPrismaMoveSet();
     const PrismaMoveTemplate* _moves[4];
 
-    std::string data = "";
-
-    //FUNCTION
-    data += "MoveSet|";
+    PrismaMessageData message;
+    message << "MoveSet" << ";";
 
     //MOVE0 -> 4
     for (int i = 0; i < 4; ++i)
@@ -609,26 +613,26 @@ bool PrismaCombat::SendPrismaMoveSetInformation()
             _moves[i] = sObjectMgr->GetPrismaMoveTemplate(*(id + i));
             if (_moves[i])
             {
-                data += std::to_string(i) + ",";
-                data += _moves[i]->Name + ",";
-                data += std::to_string(_moves[i]->PowerPoints) + ",";
-                data += std::to_string(*(pp + i));
+                message << i << ",";
+                message << _moves[i]->Name << ",";
+                message << _moves[i]->PowerPoints << ",";
+                message << *(pp + i) << ",";
+                message << int32(_moves[i]->Type);
             }
             else
             {
-                data += "-1,,0,0";
+                message << "-1,,0,0,-1";
             }
         }
-
-        if (*(id + i) == -1)
+        else
         {
-            data += "-1,,0,0";
+            message << "-1,,0,0,-1";
         }
 
-        data += "|";
+        message << ";";
     }
 
-    player->SendPrismaData("PRISMA", data);
+    player->SendPrismaData(message);
     return true;
 }
 
@@ -639,45 +643,40 @@ bool PrismaCombat::SendPrismaMoveSetInformation()
 */
 bool PrismaCombat::SendPrismaTurnInformation(PrismaTurnInformations info)
 {
-    std::string data = "";
-
-    //FUNCTION
-    data += "TurnInfo|";
+    PrismaMessageData message;
+    message << "TurnInfo" << ";";
 
     if (info == PrismaTurnInformations::AGAIN)
     {
-        data += "Update|";
+        message << "Update" << ";";
 
-        data += std::to_string(prisma->GetCurrentStamina()) + ",";
-        data += std::to_string(prisma->GetNonVolatileStatusFlags()) + ",";
-        data += std::to_string(prisma->GetVolatileStatusFlags()) + ",";
-        data += std::to_string(prisma->GetVolatileCombatStatusFlags()) + ",";
-        data += std::to_string(prisma->MoveSpeed()) + ",";
-        data += (prisma->MoveFailed() ? "1," : "0,");
-        data += (prisma->MoveCritical() ? "1" : "0");
+        message << prisma->GetCurrentStamina() << ",";
+        message << prisma->GetNonVolatileStatusFlags() << ",";
+        message << prisma->GetVolatileStatusFlags() << ",";
+        message << prisma->GetVolatileCombatStatusFlags() << ",";
+        message << prisma->MoveSpeed() << ",";
+        message << (prisma->MoveFailed() ? "1" : "0") << ",";
+        message << (prisma->MoveCritical() ? "1" : "0");
 
-        //SEPARATOR
-        data += "|";
+        message << ";";
 
-        data += std::to_string(target_prisma->GetCurrentStamina()) + ",";
-        data += std::to_string(target_prisma->GetNonVolatileStatusFlags()) + ",";
-        data += std::to_string(target_prisma->GetVolatileStatusFlags()) + ",";
-        data += std::to_string(target_prisma->GetVolatileCombatStatusFlags()) + ",";
-        data += std::to_string(target_prisma->MoveSpeed()) + ",";
-        data += (target_prisma->MoveFailed() ? "1," : "0,");
-        data += (target_prisma->MoveCritical() ? "1" : "0");
+        message << target_prisma->GetCurrentStamina() << ",";
+        message << target_prisma->GetNonVolatileStatusFlags() << ",";
+        message << target_prisma->GetVolatileStatusFlags() << ",";
+        message << target_prisma->GetVolatileCombatStatusFlags() << ",";
+        message << target_prisma->MoveSpeed() << ",";
+        message << (target_prisma->MoveFailed() ? "1" : "0") << ",";
+        message << (target_prisma->MoveCritical() ? "1" : "0");
 
-        TC_LOG_INFO("prisma", data);
-        player->SendPrismaData("PRISMA", data);
+        player->SendPrismaData(message);
         return true;
     }
 
     if (info == PrismaTurnInformations::WIN)
     {
-        // need to calculate experience
-        data += "Win";
+        message << "Win";
+        player->SendPrismaData(message);
 
-        player->SendPrismaData("PRISMA", data);
         prisma->ApplyExperience(Prisma::GetGainExperience(prisma, target_prisma, false, false, 1, 1.f));
         EndCombat();
         return true;
@@ -685,8 +684,9 @@ bool PrismaCombat::SendPrismaTurnInformation(PrismaTurnInformations info)
 
     if (info == PrismaTurnInformations::LOOSE)
     {
-        data += "Loose";
-        player->SendPrismaData("PRISMA", data);
+        message << "Loose";
+        player->SendPrismaData(message);
+
         EndCombat();
         return true;
     }
