@@ -4,6 +4,7 @@
 #include "Map.h"
 #include "Creature.h"
 #include "PrismaData.h"
+#include "TemporarySummon.h"
 #include "ObjectMgr.h"
 
 class TC_GAME_API Prisma : public Creature
@@ -245,4 +246,27 @@ struct PrismaTurnInformation
 {
     PrismaTurnInformations next;
     std::vector<Prisma*> targets;
+};
+
+struct PrismaMessageData
+{
+    std::string data;
+
+    PrismaMessageData& operator <<(const std::string& arg)
+    {
+        data += arg;
+        return *this;
+    }
+
+    PrismaMessageData& operator<<(int arg)
+    {
+        data += std::to_string(arg);
+        return *this;
+    }
+
+    PrismaMessageData& operator<<(unsigned int arg)
+    {
+        data += std::to_string(arg);
+        return *this;
+    }
 };
