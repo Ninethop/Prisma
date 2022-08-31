@@ -29,6 +29,7 @@
 #include "MapReference.h"
 #include "PetDefines.h"
 #include "PlayerTaxi.h"
+#include "Prisma.h"
 #include "QuestDef.h"
 #include <memory>
 #include <queue>
@@ -900,6 +901,7 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
 
         void SetObjectScale(float scale) override;
         void SendPrismaData(std::string prefix, std::string data);
+        void SendPrismaData(PrismaMessageData msg);
 
         bool TeleportTo(uint32 mapid, float x, float y, float z, float orientation, uint32 options = 0);
         bool TeleportTo(WorldLocation const& loc, uint32 options = 0);
