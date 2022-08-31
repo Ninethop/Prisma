@@ -1982,7 +1982,10 @@ void Player::SetObjectScale(float scale)
 void Player::SendPrismaData(std::string prefix, std::string data)
 {
     ObjectGuid guid = GetGUID();
-    std::string msg = prefix + "\t" + data + "|";
+    std::string msg = prefix + "\t" + data;
+
+    TC_LOG_INFO("prisma", "%s", msg);
+
     WorldPacket packet(SMSG_MESSAGECHAT, 100);
     packet << uint8(CHAT_MSG_WHISPER);
     packet << int32(LANG_ADDON);
@@ -1993,6 +1996,14 @@ void Player::SendPrismaData(std::string prefix, std::string data)
     packet << msg;
     packet << uint8(0);
     GetSession()->SendPacket(&packet);
+}
+
+void Player::SendPrismaData(PrismaMessageData msg)
+{
+    if (msg.data.back() != ';')
+        msg << ";";
+
+    SendPrismaData("PRISMA", msg.data);
 }
 
 bool Player::IsImmunedToSpellEffect(SpellInfo const* spellInfo, SpellEffectInfo const& spellEffectInfo, WorldObject const* caster) const
