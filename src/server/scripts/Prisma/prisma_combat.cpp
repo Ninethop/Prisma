@@ -21,7 +21,7 @@ public:
         if (!combat)
             return;
 
-        auto _data = Prisma::SplitData(data, "|", true);
+        auto _data = Prisma::SplitData(data, ";", true);
         if (_data.size() == 0)
             return;
 
@@ -31,7 +31,7 @@ public:
             if (_data.size() != 2)
                 return;
 
-            uint32 move_index = uint32(std::stoul(_data[1])) - 1;
+            uint32 move_index = uint32(std::stoul(_data[1]));
             combat->UseMove(player, move_index);
             return;
         }
@@ -60,7 +60,6 @@ public:
 
             _storage[player->GetGUID()] = new PrismaCombat(player, target->ToPrisma());
         }
-
     }
 
     void OnLeaveCombat(Player* player) override
