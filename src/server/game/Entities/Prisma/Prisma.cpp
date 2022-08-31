@@ -269,13 +269,11 @@ void Prisma::ApplyExperience(uint32 exp)
 
     // PUSH NEW EXPERIENCE
     {
-        std::string data = "";
-
-        data += "UpdateExperience|";
-        data += std::to_string(m_experience) + ",";
-        data += std::to_string(Prisma::GetRequiredExperienceForNextLevel(m_level, PrismaExperienceTypes::MEDIUM_FAST));
-
-        owner->SendPrismaData("PRISMA", data);
+        PrismaMessageData message;
+        message << "UpdateExperience" << ";";
+        message << m_experience << ",";
+        message << Prisma::GetRequiredExperienceForNextLevel(m_level, PrismaExperienceTypes::MEDIUM_FAST);
+        owner->SendPrismaData(message);
     }
 }
 
@@ -285,12 +283,10 @@ void Prisma::LevelUp()
 
     // PUSH NEW LEVEL
     {
-        std::string data = "";
-
-        data += "LevelUp|";
-        data += std::to_string(m_level);
-
-        owner->SendPrismaData("PRISMA", data);
+        PrismaMessageData message;
+        message << "LevelUp" << ";";
+        message << m_level;
+        owner->SendPrismaData(message);
     }
 }
 
@@ -508,41 +504,14 @@ uint32 Prisma::GenerateGUID()
     return ObjectMgr::GeneratePrismaGuid();
 }
 
-// this add to grid and to DB `creature`
 Prisma* Prisma::Invoke(Player* owner, uint8 num)
 {
     uint32 id = Prisma::GetTeamID(owner, num);
-    uint32 guid = Prisma::GetTeamGUID(owner, num);
-    Map* map = owner->GetMap();
-    Prisma* prisma = new Prisma();
-    if (!prisma->Create(map->GenerateLowGuid<HighGuid::Unit>(), map, owner->GetPhaseMaskForSpawn(), PRISMA_TEMPLATE_RESERVED_MIN + id, *owner))
-    {
-        delete prisma;
-        return nullptr;
-    }
+    Creature* base = owner->SummonCreature(uint32(PRISMA_TEMPLATE_RESERVED_MIN + id), owner->GetPosition());
+    if (base->IsPrisma())
+        return base->ToPrisma();
 
-    prisma->SaveToDB(map->GetId(), (1 << map->GetSpawnMode()), owner->GetPhaseMaskForSpawn());
-    ObjectGuid::LowType db_guid = prisma->GetSpawnId();
-    prisma->CleanupsBeforeDelete();
-    delete prisma;
-
-    prisma = new Prisma();
-    if (!prisma->InitializePrismaFromGuid(guid))
-    {
-        // guid doesn't exist
-        delete prisma;
-        return nullptr;
-    }
-
-    if (!prisma->LoadFromDB(db_guid, map, true, true)) 
-    {
-        // can't found prisma in `creature` db
-        delete prisma;
-        return nullptr;
-    }
-    sObjectMgr->AddCreatureToGrid(db_guid, sObjectMgr->GetCreatureData(db_guid));
-    prisma->SetOwner(owner);
-    return prisma;
+    return nullptr;
 }
 
 uint32 Prisma::GetTeamID(Player* player, uint8 num)
