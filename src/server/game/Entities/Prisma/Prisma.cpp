@@ -507,11 +507,37 @@ uint32 Prisma::GenerateGUID()
 Prisma* Prisma::Invoke(Player* owner, uint8 num)
 {
     uint32 id = Prisma::GetTeamID(owner, num);
-    Creature* base = owner->SummonCreature(uint32(PRISMA_TEMPLATE_RESERVED_MIN + id), owner->GetPosition());
-    if (base->IsPrisma())
-        return base->ToPrisma();
+    uint32 guid = Prisma::GetTeamGUID(owner, num);
+    Map* map = owner->GetMap();
+    Prisma* prisma = new Prisma();
+    if (!prisma->Create(map->GenerateLowGuid<HighGuid::Unit>(), map, owner->GetPhaseMaskForSpawn(), PRISMA_TEMPLATE_RESERVED_MIN + id, *owner))
+    {
+        delete prisma;
+        return nullptr;
+    }
 
-    return nullptr;
+    prisma->SaveToDB(map->GetId(), (1 << map->GetSpawnMode()), owner->GetPhaseMaskForSpawn());
+    ObjectGuid::LowType db_guid = prisma->GetSpawnId();
+    prisma->CleanupsBeforeDelete();
+    delete prisma;
+
+    prisma = new Prisma();
+    if (!prisma->InitializePrismaFromGuid(guid))
+    {
+        // guid doesn't exist
+        delete prisma;
+        return nullptr;
+    }
+
+    if (!prisma->LoadFromDB(db_guid, map, true, true))
+    {
+        // can't found prisma in `creature` db
+        delete prisma;
+        return nullptr;
+    }
+    sObjectMgr->AddCreatureToGrid(db_guid, sObjectMgr->GetCreatureData(db_guid));
+    prisma->SetOwner(owner);
+    return prisma;
 }
 
 uint32 Prisma::GetTeamID(Player* player, uint8 num)
