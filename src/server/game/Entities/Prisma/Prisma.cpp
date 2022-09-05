@@ -821,8 +821,11 @@ float Prisma::GetMoveCoefficient(PrismaTypes move, PrismaTypes target_type)
     case PrismaTypes::LIGHTNING:
         return GetCoefficientTypeLightning(target_type);
         break;
-    case PrismaTypes::NATURE:
-        return GetCoefficientTypeNature(target_type);
+    case PrismaTypes::GRASS:
+        return GetCoefficientTypeGrass(target_type);
+        break;
+    case PrismaTypes::ELECTRIC:
+        return GetCoefficientTypeElectric(target_type);
         break;
     case PrismaTypes::ICE:
         return GetCoefficientTypeIce(target_type);
@@ -833,29 +836,35 @@ float Prisma::GetMoveCoefficient(PrismaTypes move, PrismaTypes target_type)
     case PrismaTypes::POISON:
         return GetCoefficientTypePoison(target_type);
         break;
-    case PrismaTypes::EARTH:
-        return GetCoefficientTypeEarth(target_type);
+    case PrismaTypes::GROUND:
+        return GetCoefficientTypeGround(target_type);
         break;
-    case PrismaTypes::AIR:
-        return GetCoefficientTypeAir(target_type);
+    case PrismaTypes::FLYING:
+        return GetCoefficientTypeFlying(target_type);
         break;
-    case PrismaTypes::PSIONIC:
-        return GetCoefficientTypePsionic(target_type);
+    case PrismaTypes::PSYCHIC:
+        return GetCoefficientTypePsychic(target_type);
         break;
-    case PrismaTypes::PHANTOM:
-        return GetCoefficientTypePhantom(target_type);
+    case PrismaTypes::BUG:
+        return GetCoefficientTypeBug(target_type);
+        break;
+    case PrismaTypes::ROCK:
+        return GetCoefficientTypeRock(target_type);
+        break;
+    case PrismaTypes::GHOST:
+        return GetCoefficientTypeGhost(target_type);
         break;
     case PrismaTypes::DARK:
         return GetCoefficientTypeDark(target_type);
         break;
-    case PrismaTypes::METAL:
-        return GetCoefficientTypeMetal(target_type);
+    case PrismaTypes::DRAGON:
+        return GetCoefficientTypeDragon(target_type);
         break;
-    case PrismaTypes::LIGHT:
-        return GetCoefficientTypeLight(target_type);
+    case PrismaTypes::STEEL:
+        return GetCoefficientTypeSteel(target_type);
         break;
-    case PrismaTypes::SOUND:
-        return GetCoefficientTypeSound(target_type);
+    case PrismaTypes::FAIRY:
+        return GetCoefficientTypeFairy(target_type);
         break;
     }
 }
@@ -869,10 +878,11 @@ float Prisma::GetCoefficientTypeNormal(PrismaTypes against)
 {
     switch (against)
     {
-    case PrismaTypes::PHANTOM:
+    case PrismaTypes::GHOST:
         return 0.0f;
         break;
-    case PrismaTypes::METAL:
+    case PrismaTypes::ROCK:
+    case PrismaTypes::STEEL:
         return 0.5f;
         break;
     default:
@@ -887,11 +897,14 @@ float Prisma::GetCoefficientTypeFire(PrismaTypes against)
     {
     case PrismaTypes::FIRE:
     case PrismaTypes::WATER:
+    case PrismaTypes::ROCK:
+    case PrismaTypes::DRAGON:
         return 0.5f;
         break;
-    case PrismaTypes::NATURE:
+    case PrismaTypes::GRASS:
     case PrismaTypes::ICE:
-    case PrismaTypes::METAL:
+    case PrismaTypes::BUG:
+    case PrismaTypes::STEEL:
         return 2.f;
         break;
     default:
@@ -904,14 +917,15 @@ float Prisma::GetCoefficientTypeWater(PrismaTypes against)
 {
     switch (against)
     {
-    case PrismaTypes::FIRE:
-    case PrismaTypes::EARTH:
-        return 2.f;
-        break;
     case PrismaTypes::WATER:
-    case PrismaTypes::NATURE:
-    case PrismaTypes::SOUND:
+    case PrismaTypes::GRASS:
+    case PrismaTypes::DRAGON:
         return 0.5f;
+        break;
+    case PrismaTypes::FIRE:
+    case PrismaTypes::GROUND:
+    case PrismaTypes::ROCK:
+        return 2.f;
         break;
     default:
         return 1.f;
@@ -919,41 +933,44 @@ float Prisma::GetCoefficientTypeWater(PrismaTypes against)
     }
 }
 
-float Prisma::GetCoefficientTypeLightning(PrismaTypes against)
+float Prisma::GetCoefficientTypeGrass(PrismaTypes against)
 {
     switch (against)
     {
-    case PrismaTypes::WATER:
-    case PrismaTypes::AIR:
-    case PrismaTypes::SOUND:
-        return 2.f;
-        break;
-    case PrismaTypes::LIGHTNING:
-    case PrismaTypes::NATURE:
+    case PrismaTypes::FIRE:
+    case PrismaTypes::GRASS:
+    case PrismaTypes::POISON:
+    case PrismaTypes::FLYING:
+    case PrismaTypes::BUG:
+    case PrismaTypes::DRAGON:
+    case PrismaTypes::STEEL:
         return 0.5f;
         break;
-    case PrismaTypes::EARTH:
+    case PrismaTypes::WATER:
+    case PrismaTypes::GROUND:
+    case PrismaTypes::ROCK:
+        return 2.f;
+        break;
+    default:
+        return 1.f;
+        break;
+    }
+}
+
+float Prisma::GetCoefficientTypeElectric(PrismaTypes against)
+{
+    switch (against)
+    {
+    case PrismaTypes::GROUND:
         return 0.f;
         break;
-    default:
-        return 1.f;
-        break;
-    }
-}
-
-float Prisma::GetCoefficientTypeNature(PrismaTypes against)
-{
-    switch (against)
-    {
-    case PrismaTypes::FIRE:
-    case PrismaTypes::NATURE:
-    case PrismaTypes::POISON:
-    case PrismaTypes::AIR:
-    case PrismaTypes::METAL:
+    case PrismaTypes::ELECTRIC:
+    case PrismaTypes::GRASS:
+    case PrismaTypes::DRAGON:
         return 0.5f;
         break;
     case PrismaTypes::WATER:
-    case PrismaTypes::EARTH:
+    case PrismaTypes::FLYING:
         return 2.f;
         break;
     default:
@@ -969,12 +986,13 @@ float Prisma::GetCoefficientTypeIce(PrismaTypes against)
     case PrismaTypes::FIRE:
     case PrismaTypes::WATER:
     case PrismaTypes::ICE:
-    case PrismaTypes::METAL:
+    case PrismaTypes::STEEL:
         return 0.5f;
         break;
-    case PrismaTypes::NATURE:
-    case PrismaTypes::EARTH:
-    case PrismaTypes::AIR:
+    case PrismaTypes::GRASS:
+    case PrismaTypes::GROUND:
+    case PrismaTypes::FLYING:
+    case PrismaTypes::DRAGON:
         return 2.f;
         break;
     default:
@@ -987,18 +1005,22 @@ float Prisma::GetCoefficientTypeFighting(PrismaTypes against)
 {
     switch (against)
     {
-    case PrismaTypes::NORMAL:
-    case PrismaTypes::ICE:
-    case PrismaTypes::METAL:
-        return 2.f;
+    case PrismaTypes::GHOST:
+        return 0.f;
         break;
     case PrismaTypes::POISON:
-    case PrismaTypes::AIR:
-    case PrismaTypes::PSIONIC:
+    case PrismaTypes::FLYING:
+    case PrismaTypes::PSYCHIC:
+    case PrismaTypes::BUG:
+    case PrismaTypes::FAIRY:
         return 0.5f;
         break;
-    case PrismaTypes::PHANTOM:
-        return 0.f;
+    case PrismaTypes::NORMAL:
+    case PrismaTypes::ICE:
+    case PrismaTypes::ROCK:
+    case PrismaTypes::DARK:
+    case PrismaTypes::STEEL:
+        return 2.f;
         break;
     default:
         return 1.f;
@@ -1010,18 +1032,18 @@ float Prisma::GetCoefficientTypePoison(PrismaTypes against)
 {
     switch (against)
     {
-    case PrismaTypes::NATURE:
-    case PrismaTypes::LIGHT:
-        return 2.f;
+    case PrismaTypes::STEEL:
+        return 0.f;
         break;
     case PrismaTypes::POISON:
-    case PrismaTypes::EARTH:
-    case PrismaTypes::PHANTOM:
-    case PrismaTypes::DARK:
+    case PrismaTypes::GROUND:
+    case PrismaTypes::ROCK:
+    case PrismaTypes::GHOST:
         return 0.5f;
         break;
-    case PrismaTypes::METAL:
-        return 0.f;
+    case PrismaTypes::GRASS:
+    case PrismaTypes::FAIRY:
+        return 2.f;
         break;
     default:
         return 1.f;
@@ -1029,62 +1051,88 @@ float Prisma::GetCoefficientTypePoison(PrismaTypes against)
     }
 }
 
-float Prisma::GetCoefficientTypeEarth(PrismaTypes against)
+float Prisma::GetCoefficientTypeGround(PrismaTypes against)
+{
+    switch (against)
+    {
+    case PrismaTypes::FLYING:
+        return 0.f;
+        break;
+    case PrismaTypes::GRASS:
+    case PrismaTypes::BUG:
+        return 0.5f;
+        break;
+    case PrismaTypes::FIRE:
+    case PrismaTypes::ELECTRIC:
+    case PrismaTypes::POISON:
+    case PrismaTypes::ROCK:
+    case PrismaTypes::STEEL:
+        return 2.f;
+        break;
+    default:
+        return 1.f;
+        break;
+    }
+}
+
+float Prisma::GetCoefficientTypeFlying(PrismaTypes against)
+{
+    switch (against)
+    {
+    case PrismaTypes::ELECTRIC:
+    case PrismaTypes::ROCK:
+    case PrismaTypes::STEEL:
+        return 0.5f;
+        break;
+    case PrismaTypes::GRASS:
+    case PrismaTypes::FIGHTING:
+    case PrismaTypes::BUG:
+        return 2.f;
+        break;
+    default:
+        return 1.f;
+        break;
+    }
+}
+
+float Prisma::GetCoefficientTypePsychic(PrismaTypes against)
+{
+    switch (against)
+    {
+    case PrismaTypes::DARK:
+        return 0.f;
+        break;
+    case PrismaTypes::PSYCHIC:
+    case PrismaTypes::STEEL:
+        return 0.5f;
+        break;
+    case PrismaTypes::FIGHTING:
+    case PrismaTypes::POISON:
+        return 2.f;
+        break;
+    default:
+        return 1.f;
+        break;
+    }
+}
+
+float Prisma::GetCoefficientTypeBug(PrismaTypes against)
 {
     switch (against)
     {
     case PrismaTypes::FIRE:
-    case PrismaTypes::LIGHTNING:
-    case PrismaTypes::POISON:
-    case PrismaTypes::METAL:
-        return 2.f;
-        break;
-    case PrismaTypes::NATURE:
-        return 0.5f;
-        break;
-    case PrismaTypes::AIR:
-        return 0.f;
-        break;
-    default:
-        return 1.f;
-        break;
-    }
-}
-
-float Prisma::GetCoefficientTypeAir(PrismaTypes against)
-{
-    switch (against)
-    {
-    case PrismaTypes::LIGHTNING:
-    case PrismaTypes::METAL:
-    case PrismaTypes::SOUND:
-        return 0.5f;
-        break;
-    case PrismaTypes::NATURE:
-    case PrismaTypes::FIGHTING:
-        return 2.f;
-        break;
-    default:
-        return 1.f;
-        break;
-    }
-}
-
-float Prisma::GetCoefficientTypePsionic(PrismaTypes against)
-{
-    switch (against)
-    {
     case PrismaTypes::FIGHTING:
     case PrismaTypes::POISON:
-        return 2.f;
-        break;
-    case PrismaTypes::PSIONIC:
-    case PrismaTypes::METAL:
+    case PrismaTypes::FLYING:
+    case PrismaTypes::GHOST:
+    case PrismaTypes::STEEL:
+    case PrismaTypes::FAIRY:
         return 0.5f;
         break;
+    case PrismaTypes::GRASS:
+    case PrismaTypes::PSYCHIC:
     case PrismaTypes::DARK:
-    case PrismaTypes::LIGHT:
-        return 0.f;
+        return 2.f;
         break;
     default:
         return 1.f;
@@ -1092,20 +1140,59 @@ float Prisma::GetCoefficientTypePsionic(PrismaTypes against)
     }
 }
 
-float Prisma::GetCoefficientTypePhantom(PrismaTypes against)
+float Prisma::GetCoefficientTypeRock(PrismaTypes against)
+{
+    switch (against)
+    {
+    case PrismaTypes::FIGHTING:
+    case PrismaTypes::GROUND:
+    case PrismaTypes::STEEL:
+        return 0.5f;
+        break;
+    case PrismaTypes::FIRE:
+    case PrismaTypes::ICE:
+    case PrismaTypes::FLYING:
+    case PrismaTypes::BUG:
+        return 2.f;
+        break;
+    default:
+        return 1.f;
+        break;
+    }
+}
+
+float Prisma::GetCoefficientTypeGhost(PrismaTypes against)
 {
     switch (against)
     {
     case PrismaTypes::NORMAL:
         return 0.f;
         break;
-    case PrismaTypes::PSIONIC:
-    case PrismaTypes::PHANTOM:
+    case PrismaTypes::DARK:
+        return 0.5f;
+        break;
+    case PrismaTypes::PSYCHIC:
+    case PrismaTypes::GHOST:
         return 2.f;
         break;
-    case PrismaTypes::DARK:
-    case PrismaTypes::LIGHT:
+    default:
+        return 1.f;
+        break;
+    }
+}
+
+float Prisma::GetCoefficientTypeDragon(PrismaTypes against)
+{
+    switch (against)
+    {
+    case PrismaTypes::FAIRY:
+        return 0.f;
+        break;
+    case PrismaTypes::STEEL:
         return 0.5f;
+        break;
+    case PrismaTypes::DRAGON:
+        return 2.f;
         break;
     default:
         return 1.f;
@@ -1119,12 +1206,11 @@ float Prisma::GetCoefficientTypeDark(PrismaTypes against)
     {
     case PrismaTypes::FIGHTING:
     case PrismaTypes::DARK:
-    case PrismaTypes::METAL:
+    case PrismaTypes::FAIRY:
         return 0.5f;
         break;
-    case PrismaTypes::PSIONIC:
-    case PrismaTypes::PHANTOM:
-    case PrismaTypes::LIGHT:
+    case PrismaTypes::PSYCHIC:
+    case PrismaTypes::GHOST:
         return 2.f;
         break;
     default:
@@ -1133,19 +1219,19 @@ float Prisma::GetCoefficientTypeDark(PrismaTypes against)
     }
 }
 
-float Prisma::GetCoefficientTypeMetal(PrismaTypes against)
+float Prisma::GetCoefficientTypeSteel(PrismaTypes against)
 {
     switch (against)
     {
     case PrismaTypes::FIRE:
     case PrismaTypes::WATER:
-    case PrismaTypes::LIGHTNING:
-    case PrismaTypes::METAL:
+    case PrismaTypes::ELECTRIC:
+    case PrismaTypes::STEEL:
         return 0.5f;
         break;
     case PrismaTypes::ICE:
-    case PrismaTypes::DARK:
-    case PrismaTypes::LIGHT:
+    case PrismaTypes::ROCK:
+    case PrismaTypes::FAIRY:
         return 2.f;
         break;
     default:
@@ -1154,39 +1240,19 @@ float Prisma::GetCoefficientTypeMetal(PrismaTypes against)
     }
 }
 
-float Prisma::GetCoefficientTypeLight(PrismaTypes against)
+float Prisma::GetCoefficientTypeFairy(PrismaTypes against)
 {
     switch (against)
     {
     case PrismaTypes::FIRE:
     case PrismaTypes::POISON:
-    case PrismaTypes::METAL:
-    case PrismaTypes::LIGHT:
+    case PrismaTypes::STEEL:
         return 0.5f;
         break;
     case PrismaTypes::FIGHTING:
+    case PrismaTypes::DRAGON:
     case PrismaTypes::DARK:
         return 2.f;
-        break;
-    default:
-        return 1.f;
-        break;
-    }
-}
-
-float Prisma::GetCoefficientTypeSound(PrismaTypes against)
-{
-    switch (against)
-    {
-    case PrismaTypes::WATER:
-    case PrismaTypes::AIR:
-        return 2.f;
-        break;
-    case PrismaTypes::LIGHTNING:
-        return 0.5f;
-        break;
-    case PrismaTypes::SOUND:
-        return 0.f;
         break;
     default:
         return 1.f;

@@ -150,19 +150,22 @@ private:
     static float GetCoefficientTypeNormal(PrismaTypes against);
     static float GetCoefficientTypeFire(PrismaTypes against);
     static float GetCoefficientTypeWater(PrismaTypes against);
-    static float GetCoefficientTypeLightning(PrismaTypes against);
-    static float GetCoefficientTypeNature(PrismaTypes against);
+    static float GetCoefficientTypeGrass(PrismaTypes against);
+    static float GetCoefficientTypeElectric(PrismaTypes against);
     static float GetCoefficientTypeIce(PrismaTypes against);
     static float GetCoefficientTypeFighting(PrismaTypes against);
     static float GetCoefficientTypePoison(PrismaTypes against);
-    static float GetCoefficientTypeEarth(PrismaTypes against);
-    static float GetCoefficientTypeAir(PrismaTypes against);
-    static float GetCoefficientTypePsionic(PrismaTypes against);
-    static float GetCoefficientTypePhantom(PrismaTypes against);
+    static float GetCoefficientTypeGround(PrismaTypes against);
+    static float GetCoefficientTypeFlying(PrismaTypes against);
+    static float GetCoefficientTypePsychic(PrismaTypes against);
+    static float GetCoefficientTypeBug(PrismaTypes against);
+    static float GetCoefficientTypeRock(PrismaTypes against);
+    static float GetCoefficientTypeGhost(PrismaTypes against);
     static float GetCoefficientTypeDark(PrismaTypes against);
-    static float GetCoefficientTypeMetal(PrismaTypes against);
-    static float GetCoefficientTypeLight(PrismaTypes against);
-    static float GetCoefficientTypeSound(PrismaTypes against);
+    static float GetCoefficientTypeDragon(PrismaTypes against);
+    static float GetCoefficientTypeSteel(PrismaTypes against);
+    static float GetCoefficientTypeFairy(PrismaTypes against);
+
 
     static int GetSlowExperience(int level);
     static int GetMediumSlowExperience(int level);
